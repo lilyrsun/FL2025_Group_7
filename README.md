@@ -9,7 +9,7 @@ Name your repository using the following format:
 - **Emily Huang**: emilyhuang@wustl.edu; ; imemilyhuang;
   
 ## TA
-&lt;Name of your group's TA&gt;
+Yerin Kang
 
 ## Objectives
 &lt;Description of what your project is about, your key functionalities, tech stacks used, etc. &gt;
