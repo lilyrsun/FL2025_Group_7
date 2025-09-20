@@ -28,6 +28,7 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "scheme": "myapp"
   }
 }

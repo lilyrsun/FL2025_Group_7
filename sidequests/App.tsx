@@ -1,8 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
-import AuthForm from './components/AuthForm';
+import AuthForm, { useSupabaseAuth } from './components/AuthForm';
 
 export default function App() {
+  useSupabaseAuth();
+
   return (
     <View style={styles.container}>
       {/* <Text>Hello world!</Text>

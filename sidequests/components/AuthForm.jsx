@@ -1,9 +1,22 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { Button, Input } from '@rneui/themed'
-import GoogleOAuth from './GoogleOAuth'
+// import GoogleOAuth from './GoogleOAuth'
 import { signInWithGoogle } from './signInWithGoogle'
+import * as Linking from "expo-linking";
+
+export function useSupabaseAuth() {
+  useEffect(() => {
+    const sub = Linking.addEventListener("url", async ({ url }) => {
+      const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+      if (error) console.error("Auth error:", error);
+      else console.log("User:", data.session?.user);
+    });
+
+    return () => sub.remove();
+  }, []);
+}
 
 export default function AuthForm() {
   const [email, setEmail] = useState('')

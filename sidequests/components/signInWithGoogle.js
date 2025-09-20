@@ -8,6 +8,7 @@ const redirectUri = AuthSession.makeRedirectUri({
 });
 
 export async function signInWithGoogle() {
+  console.log("function runned")
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
