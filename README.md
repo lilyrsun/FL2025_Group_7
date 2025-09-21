@@ -26,9 +26,9 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 - **Join RSVP-Style Events:** event details (event name, date, time, location, description), see who else has RSVPed, and the ability to RSVP with a single tap
 - **Create & Manage Posts:** add event info and images, control visibility through privacy settings, edit/delete posts as needed
 - **Your Plot:** personal hub, broken down across three tabs:
--   **Wishlist:** saved locations you want to make plans at
--   **Upcoming Events:** events you've RSVPed for
--   **Diary:** a record of past spontaneous and RSVP-style events
+  - **Wishlist:** saved locations you want to make plans at
+  - **Upcoming Events:** events you've RSVPed for
+  - **Diary:** a record of past spontaneous and RSVP-style events
 
 ### Tech Stack
 - **Frontend:** React Native
