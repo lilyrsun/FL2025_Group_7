@@ -20,8 +20,8 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 
 ### Key Features
 - **Authentication & Profiles:** secure user sign-in with a customizable profile and privacy settings
-- **Home Feed**: a central feed showing both spontaneous posts (current activities) and RSVP-style posts (planned events)
-- **Interactive Map**: filter events by type and radius, with the option to explore visually
+- **Home Feed:** a central feed showing both spontaneous posts (current activities) and RSVP-style posts (planned events)
+- **Interactive Map:** filter events by type and radius, with the option to explore visually
 - **Join Spontaneous Events:** live posts of what users are doing now, with quick access to directions and the ability to ping the user to coordinate plans
 - **Join RSVP-Style Events:** event details (event name, date, time, location, description), see who else has RSVPed, and the ability to RSVP with a single tap
 - **Create & Manage Posts:** add event info and images, control visibility through privacy settings, edit/delete posts as needed
