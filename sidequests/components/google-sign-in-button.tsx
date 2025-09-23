@@ -37,10 +37,14 @@ export default function GoogleSignInButton() {
     const res = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: redirectUri,
+        redirectTo: "exp://127.0.0.1:8081/--/auth/callback",
         queryParams: { prompt: "consent" },
-        skipBrowserRedirect: true,
       },
+      // options: {
+      //   redirectTo: redirectUri,
+      //   queryParams: { prompt: "consent" },
+      //   skipBrowserRedirect: true,
+      // },
     });
 
     const googleOAuthUrl = res.data.url;
