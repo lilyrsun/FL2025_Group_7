@@ -5,7 +5,12 @@ import { Button, Input } from '@rneui/themed'
 // import GoogleOAuth from './GoogleOAuth'
 import { signInWithGoogle } from './signInWithGoogle'
 import * as Linking from "expo-linking";
+import GoogleSignInButton from './google-sign-in-button'
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
 
+WebBrowser.maybeCompleteAuthSession();
 export function useSupabaseAuth() {
   useEffect(() => {
     const sub = Linking.addEventListener("url", async ({ url }) => {
@@ -52,6 +57,28 @@ export default function AuthForm() {
     setLoading(false)
   }
 
+
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: "sidequests",
+  path: "auth/callback",
+});
+  
+  // In your component or function:
+  const handleSignInWithGoogle = async () => {
+  try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+              redirectTo: redirectUri,
+          },
+      });
+      if (error) throw error;
+      console.log('User signed in:', data.user);
+  } catch (error) {
+  console.error('Google sign-in error:', error.message);
+  }
+  };
+
   return (
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.mt20]}>
@@ -82,8 +109,22 @@ export default function AuthForm() {
         <Button title="Sign up" disabled={loading} onPress={() => signUpWithEmail()} />
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button title="Sign in with Google" disabled={loading} onPress={() => signInWithGoogle()} />
+        <Button
+          title="Sign in with Google"
+          disabled={loading}
+          onPress={() => handleSignInWithGoogle()}
+        />
+        {/* <Button
+          title="Sign in with Google"
+          disabled={loading}
+          onPress={async () => {
+            const result = await signInWithGoogle();
+            console.log("OAuth result:", result);
+          }}
+        /> */}
       </View>
+
+      <GoogleSignInButton />
 
     </View>
   )
