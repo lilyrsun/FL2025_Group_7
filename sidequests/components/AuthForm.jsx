@@ -81,7 +81,7 @@ const redirectUri = AuthSession.makeRedirectUri({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
+      {/* <View style={[styles.verticallySpaced, styles.mt20]}>
         <Input
           label="Email"
           // leftIcon={{ type: 'font-awesome', name: 'envelope' }}
@@ -107,22 +107,7 @@ const redirectUri = AuthSession.makeRedirectUri({
       </View>
       <View style={styles.verticallySpaced}>
         <Button title="Sign up" disabled={loading} onPress={() => signUpWithEmail()} />
-      </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
-        <Button
-          title="Sign in with Google"
-          disabled={loading}
-          onPress={() => handleSignInWithGoogle()}
-        />
-        {/* <Button
-          title="Sign in with Google"
-          disabled={loading}
-          onPress={async () => {
-            const result = await signInWithGoogle();
-            console.log("OAuth result:", result);
-          }}
-        /> */}
-      </View>
+      </View> */}
 
       <GoogleSignInButton />
 
