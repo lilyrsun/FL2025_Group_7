@@ -3,6 +3,14 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { darkMode, lightMode } from '../../constants/mapStyles';
+import EventBottomSheet from "../../components/EventBottomSheet";
+import { Event } from '../../types/event';
+
+const events: Event[] = [
+  { id: "1", title: "Yoga in the Park", date: "Sept 20", type: "RSVP" },
+  { id: "2", title: "Brunch Meetup", date: "Sept 21", type: "RSVP" },
+  { id: "3", title: "Basketball Game", date: "Now", type: "Spontaneous" },
+];
 
 const Home = () => {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
@@ -56,6 +64,8 @@ const Home = () => {
           />
         </MapView>
       )}
+
+      <EventBottomSheet events={events} />
     </View>
   );
 };

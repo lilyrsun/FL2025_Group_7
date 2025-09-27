@@ -8,7 +8,8 @@ module.exports = function(api) {
         "path": ".env",
         "safe": false,
         "allowUndefined": true
-      }]
+      }],
+      "react-native-worklets/plugin" // must be listed last!
     ],
   };
 };

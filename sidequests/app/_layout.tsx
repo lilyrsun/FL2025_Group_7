@@ -2,6 +2,7 @@ import { Stack, Redirect } from "expo-router";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import { hasSeenOnboarding } from "../lib/onboarding";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 function RootNavigator() {
   const { user } = useAuth();
@@ -38,8 +39,10 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-      <RootNavigator />
+      <GestureHandlerRootView>
+        <Stack screenOptions={{ headerShown: false }} />
+        <RootNavigator />
+      </GestureHandlerRootView>
     </AuthProvider>
   );
 }
