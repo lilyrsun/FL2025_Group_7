@@ -1,13 +1,22 @@
 import React, { useRef, useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import BottomSheet, { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetFlatList, BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
 import type { ListRenderItem } from "react-native";
 import { Event } from "../types/event";
 import BottomSheetHeader from "./BottomSheetHeader";
+import { BlurView } from "expo-blur";
 
 type Props = {
   events: Event[];
 };
+
+function CustomBackground({ style }: BottomSheetBackgroundProps) {
+  return (
+    <BlurView style={[style, styles.background]}>
+      <View style={styles.overlay} />
+    </BlurView>
+  );
+}
 
 const EventBottomSheet: React.FC<Props> = ({ events }) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -24,10 +33,11 @@ const EventBottomSheet: React.FC<Props> = ({ events }) => {
   );
 
   return (
-    <BottomSheet
+    <BottomSheet index={1} // initial snap index
       ref={bottomSheetRef}
       snapPoints={snapPoints}
       enableDynamicSizing={false}
+      backgroundComponent={(props) => <CustomBackground {...props} />}
     >
       <BottomSheetHeader mode={mode} setMode={setMode} />
 
@@ -67,6 +77,14 @@ const styles = StyleSheet.create({
   eventDate: {
     fontSize: 14,
     color: "#555",
+  },
+  background: {
+    borderRadius: 36,
+    overflow: "hidden",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#ffffff99",
   },
 });
 

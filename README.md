@@ -39,4 +39,6 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 ## How to Run
 &lt;Instructions for how to run your project. Include the URI to your project at the top if applicable.&gt;
 
-use cloudflare to change http to https and update the urls in the .env file
+use cloudflared to change http to https and update the urls in the .env file
+`cloudflared tunnel --url http://localhost:54321` and add it to the google cloud console
+visit `http://localhost:54323/project/default/database/schemas` to see database structure
