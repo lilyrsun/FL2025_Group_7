@@ -5,6 +5,7 @@ import * as AuthSession from "expo-auth-session";
 
 import { expo } from '../app.json'
 import * as WebBrowser from "expo-web-browser";
+import { EXPO_API_URL } from '@env'
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -37,7 +38,7 @@ export default function GoogleSignInButton() {
     const res = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "exp://127.0.0.1:8081/--/auth/callback",
+        redirectTo: EXPO_API_URL,
         queryParams: { prompt: "consent" },
       }
     });

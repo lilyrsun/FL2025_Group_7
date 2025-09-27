@@ -52,6 +52,7 @@ const Home = () => {
               longitude: location.longitude,
             }}
             title="You are here"
+            image={require("../../assets/icons/map-pin.png")}
           />
         </MapView>
       )}

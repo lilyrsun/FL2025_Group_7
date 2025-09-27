@@ -8,6 +8,7 @@ export function useSupabaseAuth() {
 
   useEffect(() => {
     const handler = async ({ url }: { url: string }) => {
+      console.log("🔗 Got redirect:", url);
       try {
         const { data, error } = await supabase.auth.exchangeCodeForSession(url);
 

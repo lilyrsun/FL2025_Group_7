@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Image } from "react-native";
 
 export default function MainLayout() {
   return (
@@ -12,24 +12,33 @@ export default function MainLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ size }) => (
+            <Image
+              source={require("../../assets/icons/map.png")}
+              style={{ width: size*3, height: size*3, resizeMode: "contain" }}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="create-event"
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" size={size} color={color} />
+          tabBarIcon: ({ size }) => (
+            <Image
+              source={require("../../assets/icons/add.png")}
+              style={{ width: size*3, height: size*3, resizeMode: "contain" }}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+          tabBarIcon: ({ size }) => (
+            <Image
+              source={require("../../assets/icons/profile.png")}
+              style={{ width: size*3, height: size*3, resizeMode: "contain" }}
+            />
           ),
         }}
       />
