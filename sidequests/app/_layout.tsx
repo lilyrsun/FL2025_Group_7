@@ -1,32 +1,45 @@
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useFonts } from "expo-font";
-import { useEffect } from "react";
-import { AuthProvider } from "../context/AuthContext";
+import { Stack, Redirect } from "expo-router";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import { useEffect, useState } from "react";
+import { hasSeenOnboarding } from "../lib/onboarding";
 
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    BricolageGrotesque: require("../assets/fonts/BricolageGrotesque-Regular.ttf"),
-  });
+function RootNavigator() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [seenOnboarding, setSeenOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync(); // hide when ready
-    }
-  }, [fontsLoaded]);
+    (async () => {
+      try {
+        const seen = await hasSeenOnboarding();
+        setSeenOnboarding(seen);
+      } catch (e) {
+        console.error("Error loading onboarding state:", e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
-  if (!fontsLoaded) {
-    return null; // keep splash showing
+  if (loading) return null; // Could replace with a splash screen
+
+  // Redirect logic
+  if (!user && !seenOnboarding) {
+    return <Redirect href="/(auth)/onboarding" />;
   }
 
+  if (!user && seenOnboarding) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  return <Redirect href="/(main)/home" />;
+}
+
+export default function RootLayout() {
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(main)" />
-      </Stack>
+      <Stack screenOptions={{ headerShown: false }} />
+      <RootNavigator />
     </AuthProvider>
   );
 }
