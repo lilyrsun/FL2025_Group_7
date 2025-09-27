@@ -39,12 +39,7 @@ export default function GoogleSignInButton() {
       options: {
         redirectTo: "exp://127.0.0.1:8081/--/auth/callback",
         queryParams: { prompt: "consent" },
-      },
-      // options: {
-      //   redirectTo: redirectUri,
-      //   queryParams: { prompt: "consent" },
-      //   skipBrowserRedirect: true,
-      // },
+      }
     });
 
     const googleOAuthUrl = res.data.url;
