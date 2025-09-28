@@ -1,64 +1,106 @@
+import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { setHasSeenOnboarding } from "../../lib/onboarding";
-import React from 'react'
+import { RootStackParamList } from "../../types/nav";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, "onboarding">;
 
 const Onboarding = () => {
-  console.log("onboarding")
-  const router = useRouter()
+  const navigation = useNavigation<NavigationProp>();
 
-  async function signup() {
-    await setHasSeenOnboarding()
-    router.replace("/signup")
+  async function handleSignup() {
+    await setHasSeenOnboarding();
+    navigation.replace("signup");
   }
 
-  async function login() {
-    await setHasSeenOnboarding()
-    router.replace("/login")
+  async function handleLogin() {
+    await setHasSeenOnboarding();
+    navigation.replace("login");
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Sidequests</Text>
+    <LinearGradient colors={["#6a11cb", "#2575fc"]} style={styles.container}>
+      <BlurView intensity={90} tint="light" style={styles.glassCard}>
+        <Text style={styles.title}>Welcome to Sidequests ✨</Text>
+        <Text style={styles.subtitle}>
+          Choose your path to start your adventure
+        </Text>
 
-      <Text style={styles.subtitle}>New here?</Text>
-      <TouchableOpacity style={styles.buttons} onPress={() => signup()}>
-        <Text>Get Started</Text>
-      </TouchableOpacity>
+        <View style={styles.buttons}>
+          <TouchableOpacity style={styles.ctaButton} onPress={handleSignup}>
+            <Text style={styles.ctaText}>Get Started</Text>
+          </TouchableOpacity>
 
-      <Text style={styles.subtitle}>Returning?</Text>
-      <TouchableOpacity style={styles.buttons} onPress={() => login()}>
-        <Text>Login</Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleLogin}>
+            <Text style={styles.secondaryText}>Login</Text>
+          </TouchableOpacity>
+        </View>
+      </BlurView>
+    </LinearGradient>
+  );
+};
 
-    </View>
-  )
-}
-
-export default Onboarding
+export default Onboarding;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+  },
+  glassCard: {
+    width: "90%",
+    padding: 28,
+    borderRadius: 24,
+    overflow: "hidden",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 12,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
-    marginVertical: 32
+    color: "rgba(255,255,255,0.85)",
+    marginBottom: 32,
+    textAlign: "center",
   },
   buttons: {
     width: "100%",
     gap: 16,
-    backgroundColor: 'lightgray',
-    padding: 12
+  },
+  ctaButton: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  ctaText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  secondaryText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

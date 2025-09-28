@@ -4,7 +4,7 @@ const HAS_SEEN_ONBOARDING_KEY = "hasSeenOnboarding";
 
 export async function hasSeenOnboarding(): Promise<boolean> {
   const value = await AsyncStorage.getItem(HAS_SEEN_ONBOARDING_KEY);
-  return value === "true";
+  return value === "false";
 }
 
 export async function setHasSeenOnboarding() {
