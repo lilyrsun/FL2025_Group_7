@@ -39,6 +39,11 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 ## How to Run
 &lt;Instructions for how to run your project. Include the URI to your project at the top if applicable.&gt;
 
-use cloudflared to change http to https and update the urls in the .env file
-`cloudflared tunnel --url http://localhost:54321` and add it to the google cloud console
-visit `http://localhost:54323/project/default/database/schemas` to see database structure
+- get docker container running and put variables in the .env file
+- navigate to the the `/sidequests` folder
+- `yarn install` everything and `npm install` for backend
+- run `npx expo start -c` for frontend app and in another terminal, `cd backend` and `npm run dev` for supabase backend
+- use cloudflared to change http to https and update the urls in the .env file
+`cloudflared tunnel --url http://localhost:54321`
+- add that to the google cloud console and supabase stop & start to reset it
+- visit `http://localhost:54323/project/default/database/schemas` to see database structure
