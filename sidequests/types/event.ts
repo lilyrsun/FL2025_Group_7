@@ -3,6 +3,8 @@ export type Event = {
   title: string;
   date: string;
   type: "Spontaneous" | "RSVP";
-  description?: string;
-  location?: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+  user_id: string;
 };

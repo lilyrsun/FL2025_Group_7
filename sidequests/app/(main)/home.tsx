@@ -5,16 +5,12 @@ import * as Location from 'expo-location';
 import { darkMode, lightMode } from '../../constants/mapStyles';
 import EventBottomSheet from "../../components/EventBottomSheet";
 import { Event } from '../../types/event';
-
-const events: Event[] = [
-  { id: "1", title: "Yoga in the Park", date: "Sept 20", type: "RSVP" },
-  { id: "2", title: "Brunch Meetup", date: "Sept 21", type: "RSVP" },
-  { id: "3", title: "Basketball Game", date: "Now", type: "Spontaneous" },
-];
+import { BACKEND_API_URL } from '@env';
 
 const Home = () => {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -30,6 +26,32 @@ const Home = () => {
       setLoading(false);
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log("called");
+        const res = await fetch(BACKEND_API_URL+"/events");
+        const rawEvents = await res.json();
+  
+        const mapped: Event[] = rawEvents.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          date: e.date,
+          type: e.type,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          created_at: e.created_at,
+          user_id: e.user_id,
+        }));
+  
+        setEvents(mapped);
+        console.log(mapped);
+      } catch (err) {
+        console.error("Failed to fetch events:", err);
+      }
+    })();
+  }, []);  
 
   if (loading) {
     return (
@@ -54,14 +76,27 @@ const Home = () => {
           provider={PROVIDER_GOOGLE}
           customMapStyle={lightMode}
         >
-          <Marker
+          {/* <Marker
             coordinate={{
               latitude: location.latitude,
               longitude: location.longitude,
             }}
             title="You are here"
             image={require("../../assets/icons/map-pin.png")}
-          />
+          /> */}
+
+          {events.map((event) => (
+            <Marker
+              key={event.id}
+              coordinate={{
+                latitude: event.latitude,
+                longitude: event.longitude,
+              }}
+              title={event.title}
+              description={event.date}
+              pinColor={event.type === "RSVP" ? "blue" : "orange"}
+            />
+          ))}
         </MapView>
       )}
 
