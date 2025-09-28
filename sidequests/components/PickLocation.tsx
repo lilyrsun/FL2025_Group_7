@@ -57,12 +57,10 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected }) =>
       const json = await res.json();
       
       // 👇 unwrap into a cleaner array
-      const predictions = (json.suggestions || []).map((p: any) => {
-        console.log(p.placePrediction.structuredFormat)
-        return ({
+      const predictions = (json.suggestions || []).map((p: any) => ({
         placeId: p.placePrediction.placeId,
         description: p.placePrediction.text?.text ?? "",
-      })});
+      }));
 
       setResults(predictions);
     } catch (err) {
