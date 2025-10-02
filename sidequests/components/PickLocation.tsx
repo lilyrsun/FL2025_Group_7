@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
@@ -33,10 +34,11 @@ type Location = {
 type PickLocationProps = {
   selected: Location | null;
   setSelected: React.Dispatch<React.SetStateAction<Location | null>>;
+  query: string;
+  setQuery: React.Dispatch<React.SetStateAction<string>>;
 };
 
-const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected }) => {
-  const [query, setQuery] = useState("");
+const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected, query, setQuery }) => {
   const [results, setResults] = useState<Place[]>([]);
 
   const fetchPlaces = useCallback(async (text: string) => {
@@ -56,7 +58,6 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected }) =>
       });
       const json = await res.json();
       
-      // 👇 unwrap into a cleaner array
       const predictions = (json.suggestions || []).map((p: any) => ({
         placeId: p.placePrediction.placeId,
         description: p.placePrediction.text?.text ?? "",
@@ -93,37 +94,57 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected }) =>
   }, []);
 
   return (
-    <View>
-      <Text style={styles.label}>Pick a location for your event:</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Search for an address"
-        value={query}
-        onChangeText={fetchPlaces}
-      />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+        style={styles.inputGradient}
+      >
+        <TextInput
+          style={styles.input}
+          placeholder="🗺️ Search for an address"
+          placeholderTextColor="rgba(106, 90, 205, 0.6)"
+          value={query}
+          onChangeText={fetchPlaces}
+        />
+      </LinearGradient>
 
       {results.length > 0 && (
-        <FlatList
-        data={results}
-        keyExtractor={(item) => item.placeId}
-        style={styles.results}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.resultItem}
-            onPress={() => selectPlace(item.placeId, item.description)}
+        <View style={styles.resultsContainer}>
+          <LinearGradient
+            colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)']}
+            style={styles.resultsGradient}
           >
-            <Text>{item.description}</Text>
-          </TouchableOpacity>
-        )}
-      />
+            <FlatList
+              data={results}
+              keyExtractor={(item) => item.placeId}
+              style={styles.results}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.resultItem}
+                  onPress={() => selectPlace(item.placeId, item.description)}
+                >
+                  <Text style={styles.resultText}>📍 {item.description}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </LinearGradient>
+        </View>
       )}
 
       {selected && (
-        <Text style={styles.coords}>
-          📍 {selected.address} {"\n"}
-          Lat: {selected.lat}, Lng: {selected.lng}
-        </Text>
+        <View style={styles.selectedContainer}>
+          <LinearGradient
+            colors={['rgba(106, 90, 205, 0.2)', 'rgba(155, 89, 182, 0.1)']}
+            style={styles.selectedGradient}
+          >
+            <Text style={styles.selectedText}>
+              ✨ {selected.address}
+            </Text>
+            <Text style={styles.coordsText}>
+              📍 Lat: {selected.lat.toFixed(4)}, Long: {selected.lng.toFixed(4)}
+            </Text>
+          </LinearGradient>
+        </View>
       )}
     </View>
   );
@@ -132,26 +153,69 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected }) =>
 export default PickLocation;
 
 const styles = StyleSheet.create({
-  label: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    backgroundColor: "#fff",
+  container: {
+    marginBottom: 8,
   },
-  results: {
-    marginTop: 4,
-    backgroundColor: "#fff",
-    borderRadius: 8,
+  inputGradient: {
+    borderRadius: 16,
+    padding: 2,
+  },
+  input: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 16,
+    color: '#6a5acd',
+    fontWeight: '500',
+  },
+  resultsContainer: {
+    marginTop: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#6a5acd',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  resultsGradient: {
+    borderRadius: 16,
+    padding: 2,
     maxHeight: 200,
   },
-  resultItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+  results: {
+    backgroundColor: 'transparent',
+    borderRadius: 14,
+    maxHeight: 196,
   },
-  coords: { marginTop: 20, fontSize: 14, color: "#333" },
+  resultItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(106, 90, 205, 0.1)',
+  },
+  resultText: {
+    fontSize: 15,
+    color: '#6a5acd',
+    fontWeight: '500',
+  },
+  selectedContainer: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  selectedGradient: {
+    borderRadius: 16,
+    padding: 16,
+  },
+  selectedText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  coordsText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+  },
 });
