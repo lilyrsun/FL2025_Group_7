@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "../lib/supabase";
+import { BACKEND_API_URL } from "@env";
 
 type User = any;
 
@@ -22,13 +23,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen to auth changes (login/logout)
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const authedUser = session?.user ?? null;
+      setUser(authedUser);
+
+      if (authedUser) {
+        ensureUserInDatabase(authedUser);
+      }
     });
 
     return () => {
       listener.subscription.unsubscribe();
     };
   }, []);
+
+  const ensureUserInDatabase = async (authedUser: User) => {
+    try {
+      const { name, email, avatar_url } = authedUser.user_metadata;
+      const { id } = authedUser;
+
+      const res =await fetch(BACKEND_API_URL+"/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, email, profile_picture: avatar_url }),
+      });
+      
+      const data = await res.json();
+
+      if (res.ok) {
+        console.log("Success, user added/updated to database");
+      } else {
+        console.log("Error", data.error || "Something went wrong");
+      }
+    } catch (err) {
+      console.error("Error ensuring user in DB:", err);
+    }
+  };
 
   // Sign out function
   const signOut = async () => {
