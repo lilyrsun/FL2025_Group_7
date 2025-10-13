@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  FlatList,
+  VirtualizedList,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
@@ -12,11 +12,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { GOOGLE_MAPS_API_KEY } from "@env";
 
 type PlacePrediction = {
-  placePrediction: {
-    placeId: string;
-    text: {
-      text: string;
-    };
+  placeId: string;
+  text: {
+    text: string;
   };
 };
 
@@ -114,11 +112,13 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected, quer
             colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)']}
             style={styles.resultsGradient}
           >
-            <FlatList
+            <VirtualizedList
               data={results}
-              keyExtractor={(item) => item.placeId}
+              keyExtractor={(item : Place) => item.placeId}
               style={styles.results}
-              renderItem={({ item }) => (
+              getItem={(data, index) => data[index]} // Default implementation
+              getItemCount={(data) => data.length}
+              renderItem={({item}) => (
                 <TouchableOpacity
                   style={styles.resultItem}
                   onPress={() => selectPlace(item.placeId, item.description)}
