@@ -13,19 +13,19 @@ const Profile = () => {
     <View style={[styles.container, { paddingTop: statusBarHeight }]}>
       <View style={styles.header}>
         <Image 
-          source={{ uri: metadata.avatar_url }}
+          source={{ uri: metadata?.avatar_url }}
           style={styles.avatar}
         />
-        <Text style={styles.name}>{metadata.full_name || "Unnamed User"}</Text>
-        <Text style={styles.email}>{metadata.email}</Text>
+        <Text style={styles.name}>{metadata?.full_name || "Unnamed User"}</Text>
+        <Text style={styles.email}>{metadata?.email || "No email"}</Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account Info</Text>
-        <Text style={styles.info}>Provider: {user.app_metadata?.provider}</Text>
-        <Text style={styles.info}>User ID: {user.id}</Text>
-        <Text style={styles.info}>Joined: {new Date(user.created_at).toLocaleDateString()}</Text>
-        <Text style={styles.info}>Last Sign In: {new Date(user.last_sign_in_at).toLocaleString()}</Text>
+        <Text style={styles.info}>Provider: {user?.app_metadata?.provider || 'N/A'}</Text>
+        <Text style={styles.info}>User ID: {user?.id || 'N/A'}</Text>
+        <Text style={styles.info}>Joined: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</Text>
+        <Text style={styles.info}>Last Sign In: {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : 'N/A'}</Text>
       </View>
 
       {/* Logout Button */}

@@ -30,8 +30,14 @@ const Home = () => {
   useEffect(() => {
     (async () => {
       try {
-        console.log("called");
-        const res = await fetch(BACKEND_API_URL+"/events");
+        // Check if BACKEND_API_URL is available
+        if (!BACKEND_API_URL) {
+          console.warn("BACKEND_API_URL not configured, skipping events fetch");
+          return;
+        }
+
+        console.log("Fetching events from backend...");
+        const res = await fetch(BACKEND_API_URL + "/events");
         const rawEvents = await res.json();
   
         const mapped: Event[] = rawEvents.map((e: any) => ({
@@ -46,9 +52,16 @@ const Home = () => {
         }));
   
         setEvents(mapped);
-        console.log(mapped);
+        console.log("Events loaded successfully:", mapped.length, "events");
       } catch (err) {
-        console.error("Failed to fetch events:", err);
+        // More specific error handling
+        if (err instanceof TypeError && err.message === "Network request failed") {
+          console.warn("Backend server appears to be offline. Events will not be loaded.");
+          setEvents([]); // Set empty array so UI doesn't break
+        } else {
+          console.error("Failed to fetch events:", err);
+          setEvents([]); // Set empty array so UI doesn't break
+        }
       }
     })();
   }, []);  

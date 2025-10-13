@@ -41,7 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { name, email, avatar_url } = authedUser.user_metadata;
       const { id } = authedUser;
 
-      const res =await fetch(BACKEND_API_URL+"/users", {
+      // Check if BACKEND_API_URL is available
+      if (!BACKEND_API_URL) {
+        console.warn("BACKEND_API_URL not configured, skipping user database sync");
+        return;
+      }
+
+      const res = await fetch(BACKEND_API_URL + "/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, name, email, profile_picture: avatar_url }),
@@ -55,7 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Error", data.error || "Something went wrong");
       }
     } catch (err) {
-      console.error("Error ensuring user in DB:", err);
+      // More specific error handling
+      if (err instanceof TypeError && err.message === "Network request failed") {
+        console.warn("Backend server appears to be offline. User authentication will still work, but some features may be limited.");
+      } else {
+        console.error("Error ensuring user in DB:", err);
+      }
     }
   };
 
