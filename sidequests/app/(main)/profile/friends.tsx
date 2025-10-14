@@ -40,6 +40,12 @@ interface FriendRequest {
     email: string;
     profile_picture?: string;
   };
+  receiver: {
+    id: string;
+    name: string;
+    email: string;
+    profile_picture?: string;
+  }
 }
 
 const Friends = () => {
@@ -69,7 +75,7 @@ const Friends = () => {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`${BACKEND_API_URL}/friends/${user.id}`);
+      const response = await fetch(`${BACKEND_API_URL}/friends/${user?.id}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -86,7 +92,7 @@ const Friends = () => {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`${BACKEND_API_URL}/friends/requests/${user.id}`);
+      const response = await fetch(`${BACKEND_API_URL}/friends/requests/${user?.id}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -103,7 +109,7 @@ const Friends = () => {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`${BACKEND_API_URL}/friends/sent/${user.id}`);
+      const response = await fetch(`${BACKEND_API_URL}/friends/sent/${user?.id}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -130,7 +136,7 @@ const Friends = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender_id: user.id,
+          sender_id: user?.id,
           receiver_email: searchEmail.trim()
         })
       });
@@ -162,7 +168,7 @@ const Friends = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           friendship_id: friendshipId,
-          user_id: user.id
+          user_id: user?.id
         })
       });
 
@@ -189,7 +195,7 @@ const Friends = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           friendship_id: friendshipId,
-          user_id: user.id
+          user_id: user?.id
         })
       });
 
@@ -222,7 +228,7 @@ const Friends = () => {
               const response = await fetch(`${BACKEND_API_URL}/friends/${friendshipId}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: user.id })
+                body: JSON.stringify({ user_id: user?.id })
               });
 
               const data = await response.json();
@@ -330,7 +336,7 @@ const Friends = () => {
       
       {/* Header */}
       <View style={[styles.header, { paddingTop: statusBarHeight }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/profile')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Friends</Text>

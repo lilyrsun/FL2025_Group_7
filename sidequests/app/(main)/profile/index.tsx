@@ -58,7 +58,7 @@ const Profile = () => {
 
     try {
       // Load friends
-      const friendsResponse = await fetch(`${BACKEND_API_URL}/friends/${user.id}`);
+      const friendsResponse = await fetch(`${BACKEND_API_URL}/friends/${user?.id}`);
       const friendsData = await friendsResponse.json();
       
       if (friendsResponse.ok) {
@@ -66,15 +66,23 @@ const Profile = () => {
       }
 
       // Load friend requests
-      const requestsResponse = await fetch(`${BACKEND_API_URL}/friends/requests/${user.id}`);
+      const requestsResponse = await fetch(`${BACKEND_API_URL}/friends/requests/${user?.id}`);
       const requestsData = await requestsResponse.json();
       
       if (requestsResponse.ok) {
         setFriendRequests(requestsData);
       }
 
+      // Load sent friend requests
+      const sentReponse = await fetch(`${BACKEND_API_URL}/friends/sent/${user?.id}`);
+      const sentData = await sentReponse.json();
+
+      if (sentReponse.ok) {
+        setSentRequests(sentData);
+      }
+
       // Load upcoming RSVPs
-      const rsvpsResponse = await fetch(`${BACKEND_API_URL}/rsvps/user/${user.id}`);
+      const rsvpsResponse = await fetch(`${BACKEND_API_URL}/rsvps/user/${user?.id}`);
       const rsvpsData = await rsvpsResponse.json();
       if (rsvpsResponse.ok) {
         setUpcomingRsvps(rsvpsData);

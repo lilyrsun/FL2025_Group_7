@@ -33,7 +33,7 @@ export default function rsvpRoutes(supabase) {
   router.get("/:eventId", async (req, res) => {
     const { data, error } = await supabase
       .from("event_rsvps")
-      .select("user_id, users(name, email, avatar_url)")
+      .select("user_id, users(name, email, profile_picture)")
       .eq("event_id", req.params.eventId);
 
     if (error) return res.status(400).json({ error: error.message });

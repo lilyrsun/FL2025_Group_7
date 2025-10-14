@@ -3,6 +3,9 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
 import { hasSeenOnboarding } from "../lib/onboarding";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LogBox } from "react-native";
+
+LogBox.ignoreAllLogs();
 
 function RootNavigator() {
   const { user } = useAuth();

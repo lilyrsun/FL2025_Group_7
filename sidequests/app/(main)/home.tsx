@@ -8,17 +8,18 @@ import EventBottomSheet from "../../components/EventBottomSheet";
 import EventModal from "../../components/EventModal";
 import { Event } from '../../types/event';
 import { BACKEND_API_URL } from '@env';
+import { RadiusCircle } from '../../components/RadiusCircle';
 
 const Home = () => {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
-  const [radiusKm, setRadiusKm] = useState(5);
+  const [radiusMi, setRadiusMi] = useState(5);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   const filteredByRadius = useMemo(() => {
     if (!location) return events;
-    const R = 6371; // km
+    const R = 3958.8; // Earth radius in miles
     const toRad = (d: number) => (d * Math.PI) / 180;
     return events.filter((e) => {
       const dLat = toRad(e.latitude - location.latitude);
@@ -28,9 +29,9 @@ const Home = () => {
       const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const d = R * c;
-      return d <= radiusKm;
+      return d <= radiusMi;
     });
-  }, [events, location, radiusKm]);
+  }, [events, location, radiusMi]);
 
   useEffect(() => {
     (async () => {
@@ -48,19 +49,27 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    (async () => {
+    let intervalId;
+
+    const fetchEvents = async () => {
       try {
         // Check if BACKEND_API_URL is available
         if (!BACKEND_API_URL) {
-          console.warn("BACKEND_API_URL not configured, skipping events fetch");
+          console.warn("⚠️ BACKEND_API_URL not configured, skipping events fetch");
           return;
         }
 
-        console.log("Fetching events from backend...");
+        console.log("🌐 Fetching events from backend...");
         const res = await fetch(BACKEND_API_URL + "/events");
+
+        if (!res.ok) {
+          console.error("❌ Backend responded with an error:", res.status, res.statusText);
+          return;
+        }
+
         const rawEvents = await res.json();
-  
-        const mapped: Event[] = rawEvents.map((e: any) => ({
+
+        const mapped = rawEvents.map((e : Event) => ({
           id: e.id,
           title: e.title,
           date: e.date,
@@ -71,21 +80,31 @@ const Home = () => {
           user_id: e.user_id,
           users: e.users,
         }));
-  
+
+        console.log(mapped)
+
         setEvents(mapped);
-        console.log("Events loaded successfully:", mapped.length, "events");
+        console.log(`✅ Events loaded successfully: ${mapped.length} events`);
       } catch (err) {
-        // More specific error handling
         if (err instanceof TypeError && err.message === "Network request failed") {
-          console.warn("Backend server appears to be offline. Events will not be loaded.");
-          setEvents([]); // Set empty array so UI doesn't break
+          console.warn("🚫 Backend server appears to be offline. Events will not be loaded.");
+          setEvents([]);
         } else {
-          console.error("Failed to fetch events:", err);
-          setEvents([]); // Set empty array so UI doesn't break
+          console.error("💥 Failed to fetch events:", err);
+          setEvents([]);
         }
       }
-    })();
-  }, []);  
+    };
+
+    // Initial fetch
+    fetchEvents();
+
+    // Poll every 10 seconds
+    intervalId = setInterval(fetchEvents, 10000);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
+  }, [BACKEND_API_URL]);
 
   if (loading) {
     return (
@@ -110,6 +129,7 @@ const Home = () => {
           provider={PROVIDER_GOOGLE}
           customMapStyle={lightMode}
         >
+          <RadiusCircle location={location} radiusMi={radiusMi} />
           {/* <Marker
             coordinate={{
               latitude: location.latitude,
@@ -136,11 +156,11 @@ const Home = () => {
       )}
 
       <View style={styles.radiusControl}>
-        <TouchableOpacity style={styles.radiusBtn} onPress={() => setRadiusKm((r) => Math.max(1, r - 1))}>
+        <TouchableOpacity style={styles.radiusBtn} onPress={() => setRadiusMi((r) => Math.max(1, r - 1))}>
           <Text style={styles.radiusBtnText}>-</Text>
         </TouchableOpacity>
-        <Text style={styles.radiusText}>{radiusKm} km</Text>
-        <TouchableOpacity style={styles.radiusBtn} onPress={() => setRadiusKm((r) => Math.min(50, r + 1))}>
+        <Text style={styles.radiusText}>{radiusMi} mi</Text>
+        <TouchableOpacity style={styles.radiusBtn} onPress={() => setRadiusMi((r) => Math.min(50, r + 1))}>
           <Text style={styles.radiusBtnText}>+</Text>
         </TouchableOpacity>
       </View>
@@ -163,7 +183,7 @@ const styles = StyleSheet.create({
   radiusControl: {
     position: 'absolute',
     top: 12,
-    left: 12,
+    alignSelf: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 8,
     paddingVertical: 6,

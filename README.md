@@ -43,7 +43,8 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 - navigate to the the `/sidequests` folder
 - `yarn install` everything and `npm install` for backend
 - run `npx expo start -c` for frontend app and in another terminal, `cd backend` and `npm run dev` for supabase backend
+  - add your IP address that you get from *"Metro waiting on exp://###.###.##.###"* to the .env file for the EXPO_API_URL and BACKEND_API_URL
 - use cloudflared to change http to https and update the urls in the .env file
 `cloudflared tunnel --url http://localhost:54321`
-- add that to the google cloud console and supabase stop & start to reset it
+  - add that to the google cloud console and supabase stop & start to reset it
 - visit `http://localhost:54323/project/default/database/schemas` to see database structure

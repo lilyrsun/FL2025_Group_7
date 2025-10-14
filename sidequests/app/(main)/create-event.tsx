@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-  Keyboard
+  Keyboard,
+  KeyboardAvoidingView
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -60,7 +61,7 @@ const CreateEvent = () => {
 
       let isoDate: string | null = null;
       if (date) {
-        isoDate = date.toISOString();
+        isoDate = date.toISOString().replace("T", " ");
       }
 
       const res = await fetch(`${BACKEND_API_URL}/events`, {
@@ -131,176 +132,179 @@ const CreateEvent = () => {
       style={styles.gradientContainer}
     >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      <ScrollView 
-        style={styles.container} 
-        contentContainerStyle={[styles.scrollContent, { paddingTop: statusBarHeight }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.heading}>✨ Create Event</Text>
-          <Text style={styles.subheading}>Let's make something amazing happen!</Text>
-        </View>
-
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Event Title</Text>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-              style={styles.inputGradient}
-            >
-              <TextInput
-                style={styles.input}
-                placeholder="What's the vibe? 🌟"
-                placeholderTextColor="rgba(106, 90, 205, 0.6)"
-                value={title}
-                onChangeText={setTitle}
-              />
-            </LinearGradient>
+      <KeyboardAvoidingView behavior="padding" style={{flex: 1}}>
+        <ScrollView 
+          style={styles.container} 
+          contentContainerStyle={[styles.scrollContent, { paddingTop: statusBarHeight }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.heading}>✨ Create Event</Text>
+            <Text style={styles.subheading}>Let's make something amazing happen!</Text>
           </View>
 
-          {type === "RSVP" && (
+          <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Date & Time</Text>
+              <Text style={styles.inputLabel}>Event Title</Text>
               <LinearGradient
                 colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
                 style={styles.inputGradient}
               >
-                <TouchableOpacity
-                  style={styles.dateInput}
-                  onPress={() => setShowDatePicker(prev => !prev)}
-                >
-                  <View style={styles.dateInputContent}>
-                    <Text style={[styles.dateText, !date && styles.placeholderText]}>
-                      {date ? date.toLocaleDateString("en-US", datestringOptions) : "📅 Pick a date"}
-                    </Text>
-                    <Entypo 
-                      name={showDatePicker ? "chevron-up" : "chevron-down"} 
-                      size={20} 
-                      color="rgba(106, 90, 205, 0.6)" 
-                    />
-                  </View>
-                </TouchableOpacity>
+                <TextInput
+                  style={styles.input}
+                  placeholder="What's the vibe? 🌟"
+                  placeholderTextColor="rgba(106, 90, 205, 0.6)"
+                  value={title}
+                  onChangeText={setTitle}
+                />
               </LinearGradient>
-
-              {showDatePicker && (
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                  style={styles.datePickerGradient}
-                >
-                  <DateTimePicker
-                    value={date || new Date()}
-                    mode="date"
-                    display="spinner"
-                    onChange={onChangeDate}
-                    textColor="#6a5acd"
-                    style={styles.datePicker}
-                  />
-                </LinearGradient>
-              )}
-
-              <LinearGradient
-                colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                style={[styles.inputGradient, { marginTop: 12 }]}
-              >
-                <TouchableOpacity
-                  style={styles.dateInput}
-                  onPress={() => setShowTimePicker(prev => !prev)}
-                >
-                  <View style={styles.dateInputContent}>
-                    <Text style={[styles.dateText, !date && styles.placeholderText]}>
-                      {date ? date.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true }) : "⏰ Pick a time"}
-                    </Text>
-                    <Entypo 
-                      name={showTimePicker ? "chevron-up" : "chevron-down"} 
-                      size={20} 
-                      color="rgba(106, 90, 205, 0.6)" 
-                    />
-                  </View>
-                </TouchableOpacity>
-              </LinearGradient>
-
-              {showTimePicker && (
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                  style={styles.datePickerGradient}
-                >
-                  <DateTimePicker
-                    value={date || new Date()}
-                    mode="time"
-                    display="spinner"
-                    is24Hour={false}
-                    onChange={onChangeTime}
-                    textColor="#6a5acd"
-                    style={styles.datePicker}
-                  />
-                </LinearGradient>
-              )}
             </View>
-          )}
 
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Location</Text>
-            <View style={styles.locationContainer}>
-              <PickLocation selected={selectedLocation} setSelected={setSelectedLocation} query={query} setQuery={setQuery} />
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Event Type</Text>
+              <View style={styles.toggleContainer}>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, type === "RSVP" && styles.activeToggle]}
+                  onPress={() => handleTypeChange("RSVP")}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                    style={styles.toggleGradient}
+                  >
+                    <View style={[styles.toggleContent, type === "RSVP" && styles.activeToggleContent]}>
+                      <Text style={[styles.toggleText, type === "RSVP" && styles.activeToggleText]}>
+                        🎫 RSVP
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.toggleBtn, type === "Spontaneous" && styles.activeToggle]}
+                  onPress={() => handleTypeChange("Spontaneous")}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                    style={styles.toggleGradient}
+                  >
+                    <View style={[styles.toggleContent, type === "Spontaneous" && styles.activeToggleContent]}>
+                      <Text style={[styles.toggleText, type === "Spontaneous" && styles.activeToggleText]}>
+                        ⚡ Spontaneous
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {type === "RSVP" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Date & Time</Text>
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={styles.inputGradient}
+                >
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => setShowDatePicker(prev => !prev)}
+                  >
+                    <View style={styles.dateInputContent}>
+                      <Text style={[styles.dateText, !date && styles.placeholderText]}>
+                        {date ? date.toLocaleDateString("en-US", datestringOptions) : "📅 Pick a date"}
+                      </Text>
+                      <Entypo 
+                        name={showDatePicker ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color="rgba(106, 90, 205, 0.6)" 
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </LinearGradient>
+
+                {showDatePicker && (
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                    style={styles.datePickerGradient}
+                  >
+                    <DateTimePicker
+                      value={date || new Date()}
+                      mode="date"
+                      display="spinner"
+                      onChange={onChangeDate}
+                      textColor="#6a5acd"
+                      style={styles.datePicker}
+                    />
+                  </LinearGradient>
+                )}
+
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={[styles.inputGradient, { marginTop: 12 }]}
+                >
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => setShowTimePicker(prev => !prev)}
+                  >
+                    <View style={styles.dateInputContent}>
+                      <Text style={[styles.dateText, !date && styles.placeholderText]}>
+                        {date ? date.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true }) : "⏰ Pick a time"}
+                      </Text>
+                      <Entypo 
+                        name={showTimePicker ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color="rgba(106, 90, 205, 0.6)" 
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </LinearGradient>
+
+                {showTimePicker && (
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                    style={styles.datePickerGradient}
+                  >
+                    <DateTimePicker
+                      value={date || new Date()}
+                      mode="time"
+                      display="spinner"
+                      is24Hour={false}
+                      onChange={onChangeTime}
+                      textColor="#6a5acd"
+                      style={styles.datePicker}
+                    />
+                  </LinearGradient>
+                )}
+              </View>
+            )}
+
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Location</Text>
+              <View style={styles.locationContainer}>
+                <PickLocation selected={selectedLocation} setSelected={setSelectedLocation} query={query} setQuery={setQuery} />
+              </View>
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Event Type</Text>
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, type === "RSVP" && styles.activeToggle]}
-                onPress={() => handleTypeChange("RSVP")}
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                  style={styles.toggleGradient}
-                >
-                  <View style={[styles.toggleContent, type === "RSVP" && styles.activeToggleContent]}>
-                    <Text style={[styles.toggleText, type === "RSVP" && styles.activeToggleText]}>
-                      🎫 RSVP
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.toggleBtn, type === "Spontaneous" && styles.activeToggle]}
-                onPress={() => handleTypeChange("Spontaneous")}
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                  style={styles.toggleGradient}
-                >
-                  <View style={[styles.toggleContent, type === "Spontaneous" && styles.activeToggleContent]}>
-                    <Text style={[styles.toggleText, type === "Spontaneous" && styles.activeToggleText]}>
-                      ⚡ Spontaneous
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.submitContainer}
-          onPress={handleSubmit} 
-          disabled={loading}
-        >
-          <LinearGradient
-            colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.submitGradient}
+          <TouchableOpacity 
+            style={styles.submitContainer}
+            onPress={handleSubmit} 
+            disabled={loading}
           >
-            <Text style={styles.submitText}>
-              {loading ? "Creating magic... ✨" : "Create Event"}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </ScrollView>
+            <LinearGradient
+              colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitGradient}
+            >
+              <Text style={styles.submitText}>
+                {loading ? "Creating magic... ✨" : "Create Event"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 };
@@ -336,7 +340,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   formContainer: {
-    marginBottom: 24,
+    // marginBottom: 24,
   },
   inputGroup: {
     marginBottom: 24,

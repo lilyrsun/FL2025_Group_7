@@ -23,14 +23,17 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initiallyRsvped = false, onChan
       const res = await fetch(`${BACKEND_API_URL}/rsvps`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user.id, event_id: eventId }),
+        body: JSON.stringify({ user_id: user?.id, event_id: eventId }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to RSVP");
       }
-      setIsRsvped(true);
-      onChanged?.(true);
+
+      setIsRsvped(prev => {
+        onChanged?.(!prev);
+        return !prev
+      });
       Alert.alert("RSVP", "You're in! 🎉");
     } catch (e: any) {
       Alert.alert("Error", e.message || "Failed to RSVP");
@@ -47,14 +50,16 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initiallyRsvped = false, onChan
       const res = await fetch(`${BACKEND_API_URL}/rsvps`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, eventId }), // note backend expects camelCase here
+        body: JSON.stringify({ userId: user?.id, eventId }), // note backend expects camelCase here
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to cancel RSVP");
       }
-      setIsRsvped(false);
-      onChanged?.(false);
+      setIsRsvped(prev => {
+        onChanged?.(!prev);
+        return !prev
+      });
       Alert.alert("RSVP", "RSVP canceled.");
     } catch (e: any) {
       Alert.alert("Error", e.message || "Failed to cancel RSVP");

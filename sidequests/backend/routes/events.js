@@ -7,12 +7,42 @@ export default function eventRoutes(supabase) {
   router.post("/", async (req, res) => {
     const { title, date, type, user_id, latitude, longitude } = req.body;
 
-    const { data, error } = await supabase
+    const { data: eventData, error: eventError } = await supabase
       .from("events")
-      .insert([{ title, date, type, user_id, latitude, longitude }]);
+      .insert([{ title, date, type, user_id, latitude, longitude }])
+      .select()
+      .single(); // Get the single inserted event back
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+    if (eventError) {
+      console.error("Event creation error:", eventError);
+      return res.status(400).json({ error: eventError.message });
+    }
+
+    console.log("✅ Event created:", eventData);
+
+    // 2️⃣ RSVP the creator to their own event
+    const { data: rsvpData, error: rsvpError } = await supabase
+      .from("event_rsvps")
+      .insert([{ user_id, event_id: eventData.id }])
+      .select()
+      .single();
+
+    if (rsvpError) {
+      console.error("RSVP error:", rsvpError);
+      // not fatal, but you can choose to return an error if this must succeed
+      return res.status(400).json({
+        error: "Event created, but failed to RSVP creator",
+        details: rsvpError.message,
+      });
+    }
+
+    console.log("🙋 RSVP added for creator:", rsvpData);
+
+    // 3️⃣ Respond with event + RSVP info
+    res.json({
+      event: eventData,
+      rsvp: rsvpData,
+    });
   });
 
   // Get events (include host user)

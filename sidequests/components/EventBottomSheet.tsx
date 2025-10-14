@@ -6,6 +6,7 @@ import type { ListRenderItem } from "react-native";
 import { Event } from "../types/event";
 import BottomSheetHeader from "./BottomSheetHeader";
 import { BlurView } from "expo-blur";
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
   events: Event[];
@@ -39,8 +40,16 @@ const EventBottomSheet: React.FC<Props> = ({ events, onOpen }) => {
         />
         <View style={{ flex: 1 }}>
           <Text style={styles.eventTitle}>{item.title}</Text>
-          <Text style={styles.eventDate}>{item.date}</Text>
+          <Text style={styles.eventDate}>{new Date(item.date).toLocaleString(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })}</Text>
         </View>
+        <Ionicons name="chevron-forward" size={20} color="rgba(0,0,0,0.7)" />
       </View>
     </TouchableOpacity>
   );

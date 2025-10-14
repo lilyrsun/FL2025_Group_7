@@ -7,6 +7,7 @@ import { BACKEND_API_URL } from '@env';
 import type { Event } from '../types/event';
 import { Ionicons } from '@expo/vector-icons';
 import { lightMode } from '../constants/mapStyles';
+import { useAuth } from '../context/AuthContext';
 
 type Props = {
   visible: boolean;
@@ -16,13 +17,19 @@ type Props = {
 
 type Attendee = {
   user_id: string;
-  users: { name: string; email: string; avatar_url?: string };
+  users: { name: string; email: string; id: string; profile_picture?: string };
 };
 
 const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
   const [event, setEvent] = useState<Event | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const { user } = useAuth()
+
+  function isUserInAttendees(): boolean {
+    return attendees.some((attendee) => attendee.user_id === user?.id);
+  }
 
   const region = useMemo(() => {
     if (!event) return undefined;
@@ -89,7 +96,14 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               </View>
             </View>
 
-            {event.date && <Text style={styles.sub}>{new Date(event.date).toLocaleString()}</Text>}
+            {event.date && <Text style={styles.sub}>{new Date(event.date).toLocaleString(undefined, {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}</Text>}
 
             {region && (
               <View style={styles.mapContainer}>
@@ -105,20 +119,24 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               </View>
             )}
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>RSVP</Text>
-              <RSVPButtons eventId={event.id} onChanged={onRsvpChanged} />
-            </View>
+            {
+              event.user_id!==user?.id &&
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>RSVP</Text>
+                <RSVPButtons initiallyRsvped={isUserInAttendees()} eventId={event.id} onChanged={onRsvpChanged} />
+              </View>
+            }
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Attendees</Text>
+              <Text style={styles.cardTitle}>Attendees ({attendees.length})</Text>
               {attendees.length === 0 ? (
                 <Text style={styles.empty}>No RSVPs yet</Text>
               ) : (
                 attendees.map((a) => (
                   <View key={a.user_id} style={styles.attendee}>
-                    <Image source={{ uri: a.users?.avatar_url || 'https://via.placeholder.com/32' }} style={styles.attendeeAvatar} />
-                    <Text style={styles.attendeeName}>{a.users?.name || a.users?.email}</Text>
+                    <Image source={{ uri: a.users?.profile_picture || 'https://via.placeholder.com/32' }} style={styles.attendeeAvatar} />
+                    <Text style={styles.attendeeName}>{a.users?.name || a.users?.email}
+                      {a.user_id===event.user_id && (event.user_id===user?.id ? " (You)" : " (Host)") }</Text>
                   </View>
                 ))
               )}
