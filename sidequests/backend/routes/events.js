@@ -45,12 +45,21 @@ export default function eventRoutes(supabase) {
     });
   });
 
-  // Get events (include host user)
+  // Get events (only future ones, include host user)
   router.get("/", async (req, res) => {
+    const now = new Date().toISOString(); // current UTC timestamp
+
     const { data, error } = await supabase
       .from("events")
-      .select("*, users(id, name, email, profile_picture)");
-    if (error) return res.status(400).json({ error: error.message });
+      .select("*, users(id, name, email, profile_picture)")
+      .gt("date", now) // only dates after current time
+      .order("date", { ascending: true }); // optional: sort by soonest first
+
+    if (error) {
+      console.error("Error fetching events:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
     res.json(data);
   });
 
