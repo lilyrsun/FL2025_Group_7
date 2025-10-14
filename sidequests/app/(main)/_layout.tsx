@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Image } from "react-native";
+import { Stack } from "expo-router";
 
 export default function MainLayout() {
   return (

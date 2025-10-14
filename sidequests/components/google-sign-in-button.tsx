@@ -103,7 +103,7 @@ export default function GoogleSignInButton() {
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#dbdbdb',
-        borderRadius: 4,
+        borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 15,
         justifyContent: 'center',

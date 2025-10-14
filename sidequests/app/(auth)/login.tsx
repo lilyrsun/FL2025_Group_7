@@ -14,12 +14,12 @@ const Login = () => {
 
   return (
     <LinearGradient
-      colors={["#6a11cb", "#2575fc"]}
+      colors={["#6a5acd", "#00c6ff", "#9b59b6"]}
       style={styles.container}
     >
       <BlurView intensity={90} tint="light" style={styles.glassCard}>
         <Text style={styles.title}>Welcome back ✨</Text>
-        <Text style={styles.subtitle}>Login to continue your Sidequests</Text>
+        <Text style={styles.subtitle}>Log in to continue your sidequests</Text>
 
         <View style={styles.buttons}>
           <GoogleSignInButton />

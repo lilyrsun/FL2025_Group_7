@@ -40,7 +40,7 @@ const Onboarding = () => {
   }
 
   return (
-    <LinearGradient colors={["#6a11cb", "#2575fc"]} style={styles.container}>
+    <LinearGradient colors={["#6a5acd", "#00c6ff", "#9b59b6"]} style={styles.container}>
       <BlurView intensity={90} tint="light" style={styles.glassCard}>
         <Swiper
           loop={false}
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   ctaButton: {
     backgroundColor: "rgba(255,255,255,0.25)",
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.4)",

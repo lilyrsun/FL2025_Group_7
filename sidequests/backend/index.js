@@ -28,9 +28,11 @@ import userRoutes from "./routes/users.js";
 import eventRoutes from "./routes/events.js";
 import uploadRoutes from "./routes/upload.js";
 import rsvpRoutes from "./routes/rsvps.js";
+import friendsRoutes from "./routes/friends.js";
 
 app.use("/users", userRoutes(supabase));
 app.use("/events", eventRoutes(supabase));
+app.use("/friends", friendsRoutes(supabase));
 app.use("/upload", uploadRoutes(supabase));
 app.use("/rsvps", rsvpRoutes(supabase));
 

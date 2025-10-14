@@ -19,7 +19,7 @@ import PickLocation from "../../components/PickLocation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 
-const datestringOptions = {
+const datestringOptions: Intl.DateTimeFormatOptions = {
   weekday: "long",
   year: "numeric",
   month: "long",
@@ -33,6 +33,7 @@ const CreateEvent = () => {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [type, setType] = useState<"RSVP" | "Spontaneous">("RSVP");
 
   const [selectedLocation, setSelectedLocation] = useState<{ address: string; lat: number; lng: number } | null>(null);
@@ -57,12 +58,17 @@ const CreateEvent = () => {
     try {
       setLoading(true);
 
+      let isoDate: string | null = null;
+      if (date) {
+        isoDate = date.toISOString();
+      }
+
       const res = await fetch(`${BACKEND_API_URL}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          date: date ? date.toISOString() : null, // Allow null date for spontaneous events
+          date: isoDate, // date+time if provided
           type,
           latitude: selectedLocation?.lat,
           longitude: selectedLocation?.lng,
@@ -93,6 +99,18 @@ const CreateEvent = () => {
     setShowDatePicker(Platform.OS === "ios"); // keep picker open for iOS
     if (selectedDate) {
       setDate(selectedDate);
+    }
+  };
+
+  const onChangeTime = (_event: any, selectedTime?: Date) => {
+    setShowTimePicker(Platform.OS === "ios");
+    if (selectedTime) {
+      setDate((prev) => {
+        const base = prev || new Date();
+        const merged = new Date(base);
+        merged.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+        return merged;
+      });
     }
   };
 
@@ -179,6 +197,44 @@ const CreateEvent = () => {
                   />
                 </LinearGradient>
               )}
+
+              <LinearGradient
+                colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                style={[styles.inputGradient, { marginTop: 12 }]}
+              >
+                <TouchableOpacity
+                  style={styles.dateInput}
+                  onPress={() => setShowTimePicker(prev => !prev)}
+                >
+                  <View style={styles.dateInputContent}>
+                    <Text style={[styles.dateText, !date && styles.placeholderText]}>
+                      {date ? date.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true }) : "⏰ Pick a time"}
+                    </Text>
+                    <Entypo 
+                      name={showTimePicker ? "chevron-up" : "chevron-down"} 
+                      size={20} 
+                      color="rgba(106, 90, 205, 0.6)" 
+                    />
+                  </View>
+                </TouchableOpacity>
+              </LinearGradient>
+
+              {showTimePicker && (
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={styles.datePickerGradient}
+                >
+                  <DateTimePicker
+                    value={date || new Date()}
+                    mode="time"
+                    display="spinner"
+                    is24Hour={false}
+                    onChange={onChangeTime}
+                    textColor="#6a5acd"
+                    style={styles.datePicker}
+                  />
+                </LinearGradient>
+              )}
             </View>
           )}
 
@@ -240,7 +296,7 @@ const CreateEvent = () => {
             style={styles.submitGradient}
           >
             <Text style={styles.submitText}>
-              {loading ? "Creating magic... ✨" : "🚀 Create Event"}
+              {loading ? "Creating magic... ✨" : "Create Event"}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

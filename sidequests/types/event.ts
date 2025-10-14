@@ -7,4 +7,5 @@ export type Event = {
   longitude: number;
   created_at: string;
   user_id: string;
+  users?: { id: string; name: string; email: string; profile_picture?: string };
 };

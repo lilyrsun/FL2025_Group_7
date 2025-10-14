@@ -15,9 +15,22 @@ export default function eventRoutes(supabase) {
     res.json(data);
   });
 
-  // Get events
+  // Get events (include host user)
   router.get("/", async (req, res) => {
-    const { data, error } = await supabase.from("events").select("*");
+    const { data, error } = await supabase
+      .from("events")
+      .select("*, users(id, name, email, profile_picture)");
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+  });
+
+  // Get a single event by id (include host user)
+  router.get("/:id", async (req, res) => {
+    const { data, error } = await supabase
+      .from("events")
+      .select("*, users(id, name, email, profile_picture)")
+      .eq("id", req.params.id)
+      .single();
     if (error) return res.status(400).json({ error: error.message });
     res.json(data);
   });

@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { router } from "expo-router";
 import BottomSheet, { BottomSheetFlatList, BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
 import type { ListRenderItem } from "react-native";
 import { Event } from "../types/event";
@@ -8,6 +9,7 @@ import { BlurView } from "expo-blur";
 
 type Props = {
   events: Event[];
+  onOpen?: (eventId: string) => void;
 };
 
 function CustomBackground({ style }: BottomSheetBackgroundProps) {
@@ -18,7 +20,7 @@ function CustomBackground({ style }: BottomSheetBackgroundProps) {
   );
 }
 
-const EventBottomSheet: React.FC<Props> = ({ events }) => {
+const EventBottomSheet: React.FC<Props> = ({ events, onOpen }) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["10%", "25%", "50%", "90%"], []);
   const [mode, setMode] = useState<"Spontaneous" | "RSVP">("RSVP");
@@ -26,10 +28,21 @@ const EventBottomSheet: React.FC<Props> = ({ events }) => {
   const filteredEvents = events.filter((e) => e.type === mode);
 
   const renderItem: ListRenderItem<Event> = ({ item }) => (
-    <View style={styles.eventCard}>
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      <Text style={styles.eventDate}>{item.date}</Text>
-    </View>
+    <TouchableOpacity
+      onPress={() => (onOpen ? onOpen(item.id) : router.push({ pathname: "/event/[id]", params: { id: item.id } }))}
+      style={styles.eventCard}
+    >
+      <View style={styles.row}>
+        <Image
+          source={{ uri: item.users?.profile_picture || 'https://via.placeholder.com/40' }}
+          style={styles.avatar}
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.eventTitle}>{item.title}</Text>
+          <Text style={styles.eventDate}>{item.date}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -69,6 +82,16 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderColor: "#eee",
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   eventTitle: {
     fontSize: 16,
