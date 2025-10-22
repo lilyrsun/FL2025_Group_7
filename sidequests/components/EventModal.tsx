@@ -71,6 +71,8 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
     await load();
   };
 
+  console.log("Event attendees:", attendees);
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <LinearGradient colors={['#6a5acd', '#00c6ff', '#9b59b6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientContainer}>
