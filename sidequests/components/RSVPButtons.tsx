@@ -1,68 +1,54 @@
 import React, { useState } from "react";
 import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from "expo-linear-gradient";
 import { BACKEND_API_URL } from "@env";
 import { useAuth } from "../context/AuthContext";
 
+type RSVPStatus = "yes" | "no" | "none";
+
 type Props = {
   eventId: string;
-  initiallyRsvped?: boolean;
-  onChanged?: (isRsvped: boolean) => void;
+  initialStatus?: RSVPStatus; // "yes" | "no" | "none"
+  onChanged?: (newStatus: RSVPStatus) => void;
 };
 
-const RSVPButtons: React.FC<Props> = ({ eventId, initiallyRsvped = false, onChanged }) => {
+const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChanged }) => {
   const { user } = useAuth();
+  const [status, setStatus] = useState<RSVPStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
-  const [isRsvped, setIsRsvped] = useState(initiallyRsvped);
 
-  const handleYes = async () => {
+  const updateRSVP = async (newStatus: RSVPStatus) => {
     if (!user?.id) return;
-    if (isRsvped) return; // already RSVP'd
+    if (loading) return;
+
+    setLoading(true);
     try {
-      setLoading(true);
+      // If user tapped the same status again → remove RSVP
+      const effectiveStatus = status === newStatus ? "none" : newStatus;
+
       const res = await fetch(`${BACKEND_API_URL}/rsvps`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user?.id, event_id: eventId }),
+        body: JSON.stringify({
+          user_id: user.id,
+          event_id: eventId,
+          status: effectiveStatus === "none" ? null : effectiveStatus,
+        }),
       });
+
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to RSVP");
+        throw new Error(data.error || "Failed to update RSVP");
       }
 
-      setIsRsvped(prev => {
-        onChanged?.(!prev);
-        return !prev
-      });
-      Alert.alert("RSVP", "You're in! 🎉");
-    } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to RSVP");
-    } finally {
-      setLoading(false);
-    }
-  };
+      setStatus(effectiveStatus);
+      onChanged?.(effectiveStatus);
 
-  const handleCancel = async () => {
-    if (!user?.id) return;
-    if (!isRsvped) return; // nothing to cancel
-    try {
-      setLoading(true);
-      const res = await fetch(`${BACKEND_API_URL}/rsvps`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, eventId }), // note backend expects camelCase here
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to cancel RSVP");
-      }
-      setIsRsvped(prev => {
-        onChanged?.(!prev);
-        return !prev
-      });
-      Alert.alert("RSVP", "RSVP canceled.");
+      if (effectiveStatus === "yes") Alert.alert("RSVP", "You're in! 🎉");
+      else if (effectiveStatus === "no") Alert.alert("RSVP", "You declined this event.");
+      else Alert.alert("RSVP", "RSVP cleared.");
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to cancel RSVP");
+      Alert.alert("Error", e.message || "Failed to update RSVP");
     } finally {
       setLoading(false);
     }
@@ -70,14 +56,29 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initiallyRsvped = false, onChan
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity disabled={loading} onPress={handleYes} style={{ flex: 1 }}>
-        <LinearGradient colors={isRsvped ? ['#4CAF50', '#2ecc71'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']} style={styles.glassBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-          {loading && !isRsvped ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>👍 Yes</Text>}
+      <TouchableOpacity disabled={loading} onPress={() => updateRSVP("yes")} style={{ flex: 1 }}>
+        <LinearGradient
+          colors={status === "yes" ? ["#4CAF50", "#2ecc71"] : ["#555", "#444"]}
+          style={styles.glassBtn}
+        >
+          {loading && status === "yes" ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.text}>👍 Yes</Text>
+          )}
         </LinearGradient>
       </TouchableOpacity>
-      <TouchableOpacity disabled={loading || !isRsvped} onPress={handleCancel} style={{ flex: 1 }}>
-        <LinearGradient colors={!isRsvped ? ['#e74c3c', '#c0392b'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']} style={styles.glassBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-          {loading && isRsvped ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>👎 No</Text>}
+
+      <TouchableOpacity disabled={loading} onPress={() => updateRSVP("no")} style={{ flex: 1 }}>
+        <LinearGradient
+          colors={status === "no" ? ["#e74c3c", "#c0392b"] : ["#555", "#444"]}
+          style={styles.glassBtn}
+        >
+          {loading && status === "no" ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.text}>👎 No</Text>
+          )}
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
   glassBtn: {
     paddingVertical: 12,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   text: {
     color: "#fff",
@@ -101,4 +102,3 @@ const styles = StyleSheet.create({
 });
 
 export default RSVPButtons;
-

@@ -17,6 +17,7 @@ type Props = {
 
 type Attendee = {
   user_id: string;
+  status: "yes" | "no";
   users: { name: string; email: string; id: string; profile_picture?: string };
 };
 
@@ -25,11 +26,19 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const yesAttendees = useMemo(
+    () => attendees.filter((a) => a?.status === "yes"),
+    [attendees]
+  );
+
   const { user } = useAuth()
 
-  function isUserInAttendees(): boolean {
-    return attendees.some((attendee) => attendee.user_id === user?.id);
+  function isUserInAttendees() {
+    const attendee = attendees.find((a) => a.user_id === user?.id);
+    return attendee?.status ?? "none";
   }
+
+  console.log(isUserInAttendees())
 
   const region = useMemo(() => {
     if (!event) return undefined;
@@ -125,16 +134,16 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               event.user_id!==user?.id &&
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>RSVP</Text>
-                <RSVPButtons initiallyRsvped={isUserInAttendees()} eventId={event.id} onChanged={onRsvpChanged} />
+                <RSVPButtons initialStatus={isUserInAttendees()} eventId={event.id} onChanged={onRsvpChanged} />
               </View>
             }
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Attendees ({attendees.length})</Text>
-              {attendees.length === 0 ? (
+              <Text style={styles.cardTitle}>Attendees ({yesAttendees.length})</Text>
+              {yesAttendees.length === 0 ? (
                 <Text style={styles.empty}>No RSVPs yet</Text>
               ) : (
-                attendees.map((a) => (
+                yesAttendees.map((a) => (
                   <View key={a.user_id} style={styles.attendee}>
                     <Image source={{ uri: a.users?.profile_picture || 'https://via.placeholder.com/32' }} style={styles.attendeeAvatar} />
                     <Text style={styles.attendeeName}>{a.users?.name || a.users?.email}
