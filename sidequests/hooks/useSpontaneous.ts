@@ -146,7 +146,10 @@ export function useSpontaneous(userId: string | null) {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched nearby presences:', data);
         setPresences(data);
+      } else {
+        console.error('Failed to fetch nearby presences:', response.status);
       }
     } catch (error) {
       console.error('Error fetching nearby presences:', error);

@@ -56,8 +56,13 @@ const SpontaneousModal: React.FC<Props> = ({
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
         throw new Error('Failed to start spontaneous event');
       }
+
+      const result = await response.json();
+      console.log('Spontaneous event started successfully:', result);
 
       onStart();
       onClose();

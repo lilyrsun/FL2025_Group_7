@@ -211,6 +211,10 @@ export default function spontaneousRoutes(supabase) {
       const R = 3958.8; // Earth radius in miles
       const toRad = (d) => (d * Math.PI) / 180;
 
+      console.log('Debug - allPresences:', allPresences);
+      console.log('Debug - friendIds:', friendIds);
+      console.log('Debug - requesting user_id:', user_id);
+
       const nearbyPresences = allPresences?.filter((p) => {
         const dLat = toRad(p.latitude - parseFloat(latitude));
         const dLon = toRad(p.longitude - parseFloat(longitude));
@@ -224,6 +228,7 @@ export default function spontaneousRoutes(supabase) {
         return d <= parseFloat(radius_miles);
       });
 
+      console.log('Debug - nearbyPresences:', nearbyPresences);
       res.json(nearbyPresences || []);
     } catch (error) {
       console.error("Error fetching nearby presences:", error);

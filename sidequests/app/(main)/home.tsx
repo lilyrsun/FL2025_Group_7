@@ -26,13 +26,15 @@ const Home = () => {
   const [localIsSharing, setLocalIsSharing] = useState(false);
   const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
 
-  // Debug logging
-  console.log('Home component - currentTabMode:', currentTabMode);
-
   const { presences: spontaneousPresences, fetchNearbyPresences } = useSpontaneous(user?.id || null);
   
   // Combine remote and local state for isSharing
   const isSharing = localIsSharing;
+
+  // Debug logging
+  console.log('Home component - currentTabMode:', currentTabMode);
+  console.log('Home component - spontaneousPresences:', spontaneousPresences);
+  console.log('Home component - isSharing:', isSharing);
 
   const filteredByRadius = useMemo(() => {
     if (!location) return events;
@@ -145,6 +147,7 @@ const Home = () => {
   // Fetch nearby spontaneous presences when location changes
   useEffect(() => {
     if (location && user?.id) {
+      console.log('Fetching nearby presences for location:', location.latitude, location.longitude, 'radius:', radiusMi);
       fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
     }
   }, [location, radiusMi, user?.id, fetchNearbyPresences]);
@@ -288,9 +291,11 @@ const Home = () => {
         }}
         isActive={isSharing}
         onStart={() => {
+          console.log('SpontaneousModal onStart called');
           setLocalIsSharing(true);
           // Refresh nearby presences
           if (location) {
+            console.log('Manually fetching presences after start');
             fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
           }
         }}
