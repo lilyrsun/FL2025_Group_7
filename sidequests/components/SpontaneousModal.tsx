@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, StatusBar, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BACKEND_API_URL } from '@env';
 import { useAuth } from '../context/AuthContext';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   isVisible: boolean;
@@ -23,6 +25,7 @@ const SpontaneousModal: React.FC<Props> = ({
   const [statusText, setStatusText] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleStart = async () => {
     if (!user?.id) {
@@ -76,14 +79,28 @@ const SpontaneousModal: React.FC<Props> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`${BACKEND_API_URL}/spontaneous/stop`, {
+      if (!BACKEND_API_URL) {
+        console.warn('BACKEND_API_URL not configured');
+      }
+
+      const url = `${BACKEND_API_URL}/spontaneous/stop`;
+      console.log('Stopping spontaneous presence via:', url);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to stop spontaneous event');
+        // If no active presence exists anymore (already expired/stopped), treat as success
+        if (response.status === 404) {
+          console.log('No active presence to stop; treating as already stopped');
+        } else {
+          const text = await response.text();
+          console.error('Stop spontaneous failed:', response.status, text);
+          throw new Error('Failed to stop spontaneous event');
+        }
       }
 
       onStop();
@@ -103,92 +120,103 @@ const SpontaneousModal: React.FC<Props> = ({
       visible={isVisible}
       transparent
       animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
-          >
-            <View style={styles.header}>
-              <Text style={styles.title}>
-                {isActive ? 'Stop Sharing Location' : 'Start Spontaneous Event'}
-              </Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
+        <LinearGradient
+          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.modalGradient}
+        >
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          
+          {/* Modal Header */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 4 }]}>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{isActive ? 'Stop Sharing' : 'Start Spontaneous'}</Text>
+            <View style={styles.placeholder} />
+          </View>
 
-            {!isActive ? (
-              <View style={styles.content}>
-                <Text style={styles.subtitle}>
-                  Share your location with friends and let them know you're available!
-                </Text>
+          {/* Modal Content */}
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.container}
+            >
+                {!isActive ? (
+                  <View style={styles.content}>
+                    <Text style={styles.subtitleLight}>
+                      Share your location with friends and let them know you're available!
+                    </Text>
 
-                <Text style={styles.label}>Status (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Down for coffee!"
-                  value={statusText}
-                  onChangeText={setStatusText}
-                  maxLength={100}
-                  multiline
-                />
+                    <Text style={styles.labelLight}>Status (optional)</Text>
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                      style={styles.inputGradient}
+                    >
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., Down for coffee!"
+                        placeholderTextColor="rgba(106, 90, 205, 0.6)"
+                        value={statusText}
+                        onChangeText={setStatusText}
+                        maxLength={100}
+                        multiline
+                      />
+                    </LinearGradient>
 
-                <View style={styles.infoBox}>
-                  <Ionicons name="information-circle-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>
-                    Your location will be shared for 10 minutes and only visible to friends.
-                  </Text>
-                </View>
+                    <View style={styles.infoBoxLight}>
+                      <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
+                      <Text style={styles.infoTextLight}>
+                        Your location will be shared for 10 minutes and only visible to friends.
+                      </Text>
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.button, styles.startButton]}
-                  onPress={handleStart}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Text style={styles.buttonText}>Starting...</Text>
-                  ) : (
-                    <>
-                      <Ionicons name="radio-button-on" size={20} color="#fff" />
-                      <Text style={styles.buttonText}>Start Sharing</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.content}>
-                <View style={styles.activeStatus}>
-                  <Ionicons name="radio-button-on" size={32} color="#4CAF50" />
-                  <Text style={styles.activeText}>Location is being shared</Text>
-                </View>
+                    <TouchableOpacity onPress={handleStart} disabled={loading}>
+                      <LinearGradient
+                        colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.buttonSurface, styles.startSurface]}
+                      >
+                        <Ionicons name="radio-button-on" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>Start Sharing</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.content}>
+                    <View style={styles.activeStatus}>
+                      <Ionicons name="radio-button-on" size={32} color="#B7F5C8" />
+                      <Text style={styles.activeText}>Location is being shared</Text>
+                    </View>
 
-                <View style={styles.infoBox}>
-                  <Text style={styles.infoText}>
-                    Your friends can see your live location and join you.
-                  </Text>
-                </View>
+                    <View style={styles.infoBoxLight}>
+                      <Text style={styles.infoTextLight}>
+                        Your friends can see your live location and join you.
+                      </Text>
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.button, styles.stopButton]}
-                  onPress={handleStop}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Text style={styles.buttonText}>Stopping...</Text>
-                  ) : (
-                    <>
-                      <Ionicons name="stop-circle" size={20} color="#fff" />
-                      <Text style={styles.buttonText}>Stop Sharing</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+                    <TouchableOpacity onPress={handleStop} disabled={loading}>
+                      <LinearGradient
+                        colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.buttonSurface, styles.stopSurface]}
+                      >
+                        <Ionicons name="stop-circle" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>Stop Sharing</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                )}
           </KeyboardAvoidingView>
-        </View>
+        </ScrollView>
+        </LinearGradient>
       </View>
     </Modal>
   );
@@ -200,16 +228,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#fff',
+  modalGradient: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '80%',
-    width: '100%',
+    minHeight: '90%',
+    maxHeight: '100%',
   },
-  container: {
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  placeholder: {
+    width: 40,
+  },
+  modalContent: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row',
@@ -217,34 +267,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 5,
-  },
   content: {
     flex: 1,
   },
-  subtitle: {
+  subtitleLight: {
     fontSize: 14,
-    color: '#666',
+    color: '#ffffff',
+    opacity: 0.9,
     marginBottom: 20,
   },
-  label: {
+  labelLight: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#ffffff',
     marginBottom: 8,
   },
+  inputGradient: {
+    borderRadius: 12,
+    padding: 2,
+    marginBottom: 20,
+  },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20,
     minHeight: 50,
+    color: '#2d2d2d',
+    backgroundColor: 'transparent',
   },
   infoBox: {
     flexDirection: 'row',
@@ -253,13 +302,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 20,
   },
+  infoBoxLight: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
   infoText: {
     fontSize: 13,
     color: '#666',
     marginLeft: 10,
     flex: 1,
   },
+  infoTextLight: {
+    fontSize: 13,
+    color: '#ffffff',
+    marginLeft: 10,
+    flex: 1,
+  },
   button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  buttonSurface: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -272,6 +342,10 @@ const styles = StyleSheet.create({
   },
   stopButton: {
     backgroundColor: '#f44336',
+  },
+  startSurface: {
+  },
+  stopSurface: {
   },
   buttonText: {
     color: '#fff',
@@ -288,7 +362,7 @@ const styles = StyleSheet.create({
   activeText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#B7F5C8',
   },
 });
 

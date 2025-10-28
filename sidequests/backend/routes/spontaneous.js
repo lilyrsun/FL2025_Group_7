@@ -107,16 +107,17 @@ export default function spontaneousRoutes(supabase) {
         })
         .eq("user_id", user_id)
         .eq("is_active", true)
-        .select()
-        .single();
+        .select(); // allow multiple rows; client treats success if any updated
 
       if (error) throw error;
 
-      if (!data) {
+      if (!data || data.length === 0) {
         return res.status(404).json({ error: "No active spontaneous presence found" });
       }
 
-      res.json(data);
+      // Return the most recently seen row
+      const sorted = [...data].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
+      res.json(sorted[0]);
     } catch (error) {
       console.error("Error updating location:", error);
       res.status(400).json({ error: error.message });
@@ -132,18 +133,28 @@ export default function spontaneousRoutes(supabase) {
     }
 
     try {
+      // Find latest active presence for this user
+      const { data: rows, error: findErr } = await supabase
+        .from("spontaneous_presences")
+        .select("id, last_seen")
+        .eq("user_id", user_id)
+        .eq("is_active", true);
+
+      if (findErr) throw findErr;
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ error: "No active spontaneous presence found" });
+      }
+
+      const latest = rows.sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen))[0];
+
       const { data, error } = await supabase
         .from("spontaneous_presences")
         .update({ is_active: false })
-        .eq("user_id", user_id)
+        .eq("id", latest.id)
         .select()
         .single();
 
       if (error) throw error;
-
-      if (!data) {
-        return res.status(404).json({ error: "No active spontaneous presence found" });
-      }
 
       res.json({ message: "Spontaneous presence stopped", data });
     } catch (error) {

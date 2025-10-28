@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from "react";
+import React, { useRef, useMemo, useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { router } from "expo-router";
 import BottomSheet, { BottomSheetFlatList, BottomSheetBackgroundProps } from "@gorhom/bottom-sheet";
@@ -14,6 +14,7 @@ type Props = {
   spontaneousPresences?: SpontaneousPresence[];
   onOpen?: (eventId: string) => void;
   onPresenceTap?: (presence: SpontaneousPresence) => void;
+  onModeChange?: (mode: "Spontaneous" | "RSVP") => void;
 };
 
 function CustomBackground({ style }: BottomSheetBackgroundProps) {
@@ -24,12 +25,17 @@ function CustomBackground({ style }: BottomSheetBackgroundProps) {
   );
 }
 
-const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], onOpen, onPresenceTap }) => {
+const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], onOpen, onPresenceTap, onModeChange }) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["10%", "25%", "50%", "90%"], []);
   const [mode, setMode] = useState<"Spontaneous" | "RSVP">("RSVP");
 
   const filteredEvents = events.filter((e) => e.type === mode);
+
+  // Notify parent of mode changes
+  useEffect(() => {
+    onModeChange?.(mode);
+  }, [mode, onModeChange]);
 
   const renderEventItem: ListRenderItem<Event> = ({ item }) => (
     <TouchableOpacity
