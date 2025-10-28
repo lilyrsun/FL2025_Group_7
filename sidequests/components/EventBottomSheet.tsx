@@ -34,6 +34,7 @@ const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], 
 
   // Notify parent of mode changes
   useEffect(() => {
+    console.log('EventBottomSheet - mode changed to:', mode);
     onModeChange?.(mode);
   }, [mode, onModeChange]);
 

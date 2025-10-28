@@ -35,15 +35,13 @@ const SpontaneousModal: React.FC<Props> = ({
 
     setLoading(true);
     try {
-      // Request location
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Location permission is required for spontaneous events');
-        return;
-      }
+      // For demo purposes, use temporary San Francisco coordinates
+      // TODO: Replace with real location in production
+      const latitude = 37.7749 + (Math.random() - 0.5) * 0.01; // SF downtown area with slight variation
+      const longitude = -122.4194 + (Math.random() - 0.5) * 0.01;
+      const accuracy = 10; // Mock accuracy
 
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude, accuracy } = location.coords;
+      console.log('Using demo coordinates:', { latitude, longitude });
 
       const response = await fetch(`${BACKEND_API_URL}/spontaneous/start`, {
         method: 'POST',
@@ -118,37 +116,34 @@ const SpontaneousModal: React.FC<Props> = ({
   return (
     <Modal
       visible={isVisible}
-      transparent
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <LinearGradient
-          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.modalGradient}
-        >
-          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-          
-          {/* Modal Header */}
-          <View style={[styles.modalHeader, { paddingTop: insets.top + 4 }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Ionicons name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{isActive ? 'Stop Sharing' : 'Start Spontaneous'}</Text>
-            <View style={styles.placeholder} />
-          </View>
+      <LinearGradient
+        colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isActive ? 'Stop Sharing' : 'Start Spontaneous'}</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-          {/* Modal Content */}
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.container}
-            >
+        <ScrollView style={styles.content}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.container}
+          >
                 {!isActive ? (
-                  <View style={styles.content}>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Share Your Location</Text>
                     <Text style={styles.subtitleLight}>
                       Share your location with friends and let them know you're available!
                     </Text>
@@ -189,7 +184,8 @@ const SpontaneousModal: React.FC<Props> = ({
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <View style={styles.content}>
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Location Sharing Active</Text>
                     <View style={styles.activeStatus}>
                       <Ionicons name="radio-button-on" size={32} color="#B7F5C8" />
                       <Text style={styles.activeText}>Location is being shared</Text>
@@ -216,59 +212,53 @@ const SpontaneousModal: React.FC<Props> = ({
                 )}
           </KeyboardAvoidingView>
         </ScrollView>
-        </LinearGradient>
-      </View>
+      </LinearGradient>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  gradientContainer: { 
+    flex: 1 
+  },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 24, 
+    paddingTop: 32, 
+    paddingBottom: 16 
+  },
+  closeButton: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  headerTitle: { 
+    color: '#ffffff', 
+    fontSize: 20, 
+    fontWeight: '700' 
+  },
+  content: { 
+    paddingHorizontal: 16 
+  },
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
-  modalGradient: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    minHeight: '90%',
-    maxHeight: '100%',
+  card: { 
+    backgroundColor: 'rgba(255,255,255,0.12)', 
+    borderRadius: 16, 
+    padding: 14, 
+    marginVertical: 8 
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-  },
-  modalCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  placeholder: {
-    width: 40,
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  content: {
-    flex: 1,
+  cardTitle: { 
+    color: '#ffffff', 
+    fontWeight: '700', 
+    marginBottom: 8,
+    fontSize: 18
   },
   subtitleLight: {
     fontSize: 14,
@@ -295,13 +285,6 @@ const styles = StyleSheet.create({
     color: '#2d2d2d',
     backgroundColor: 'transparent',
   },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
   infoBoxLight: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -309,25 +292,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
   },
-  infoText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 10,
-    flex: 1,
-  },
   infoTextLight: {
     fontSize: 13,
     color: '#ffffff',
     marginLeft: 10,
     flex: 1,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
   },
   buttonSurface: {
     flexDirection: 'row',
@@ -336,12 +305,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     gap: 8,
-  },
-  startButton: {
-    backgroundColor: '#4CAF50',
-  },
-  stopButton: {
-    backgroundColor: '#f44336',
   },
   startSurface: {
   },

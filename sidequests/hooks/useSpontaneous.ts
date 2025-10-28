@@ -54,6 +54,43 @@ export function useSpontaneous(userId: string | null) {
   // Start location tracking
   const startLocationTracking = async (presenceId: string) => {
     try {
+      // For demo purposes, simulate location updates with San Francisco coordinates
+      // TODO: Replace with real location tracking in production
+      console.log('Starting demo location tracking for presence:', presenceId);
+      
+      const demoLocationUpdate = async () => {
+        if (!userId) return;
+
+        try {
+          // Add slight random variation to simulate movement
+          const latitude = 37.7749 + (Math.random() - 0.5) * 0.005;
+          const longitude = -122.4194 + (Math.random() - 0.5) * 0.005;
+          
+          await fetch(`${BACKEND_API_URL}/spontaneous/update-location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId,
+              latitude,
+              longitude,
+              accuracy: 10,
+            }),
+          });
+          
+          console.log('Updated demo location:', { latitude, longitude });
+        } catch (error) {
+          console.error('Error updating location:', error);
+        }
+      };
+
+      // Update location every 30 seconds
+      const interval = setInterval(demoLocationUpdate, 30000);
+      
+      // Store interval ID for cleanup
+      setLocationWatcher({ remove: () => clearInterval(interval) } as any);
+      
+      // Uncomment below for real location tracking in production:
+      /*
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
 
@@ -84,6 +121,7 @@ export function useSpontaneous(userId: string | null) {
       );
 
       setLocationWatcher(watcher);
+      */
     } catch (error) {
       console.error('Error starting location tracking:', error);
     }

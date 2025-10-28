@@ -4,6 +4,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import { darkMode, lightMode } from '../../constants/mapStyles';
 import EventBottomSheet from "../../components/EventBottomSheet";
 import EventModal from "../../components/EventModal";
@@ -23,6 +24,10 @@ const Home = () => {
   const [openEventId, setOpenEventId] = useState<string | null>(null);
   const [showSpontaneousSheet, setShowSpontaneousSheet] = useState(false);
   const [localIsSharing, setLocalIsSharing] = useState(false);
+  const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
+
+  // Debug logging
+  console.log('Home component - currentTabMode:', currentTabMode);
 
   const { presences: spontaneousPresences, fetchNearbyPresences } = useSpontaneous(user?.id || null);
   
@@ -47,6 +52,24 @@ const Home = () => {
 
   useEffect(() => {
     (async () => {
+      // For demo purposes, use San Francisco coordinates
+      // TODO: Replace with real location in production
+      const demoLocation = {
+        latitude: 37.7749,
+        longitude: -122.4194,
+        accuracy: 10,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      };
+      
+      console.log('Using demo location:', demoLocation);
+      setLocation(demoLocation);
+      setLoading(false);
+      
+      // Uncomment below for real location in production:
+      /*
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.log('Permission to access location was denied');
@@ -57,6 +80,7 @@ const Home = () => {
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
       setLoading(false);
+      */
     })();
   }, []);
 
@@ -214,23 +238,32 @@ const Home = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Spontaneous event button */}
-      <TouchableOpacity
-        style={[styles.spontaneousButton, isSharing && styles.spontaneousButtonActive]}
-        onPress={() => {
-          console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
-          setShowSpontaneousSheet(true);
-        }}
-      >
-        <Ionicons
-          name={isSharing ? "radio-button-on" : "radio-button-off"}
-          size={24}
-          color="#fff"
-        />
-        <Text style={styles.spontaneousButtonText}>
-          {isSharing ? "Sharing..." : "Start Spontaneous"}
-        </Text>
-      </TouchableOpacity>
+      {/* Spontaneous event button - show "Start Spontaneous" only on Spontaneous tab, "Sharing..." on both tabs */}
+      {(currentTabMode === "Spontaneous" || isSharing) && (
+        <LinearGradient
+          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.spontaneousButtonBorder}
+        >
+          <TouchableOpacity
+            style={[styles.spontaneousButton, isSharing && styles.spontaneousButtonActive]}
+            onPress={() => {
+              console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
+              setShowSpontaneousSheet(true);
+            }}
+          >
+            <Ionicons
+              name={isSharing ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.spontaneousButtonText}>
+              {isSharing ? "Sharing..." : "Start Spontaneous"}
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      )}
 
       <EventBottomSheet
         events={filteredByRadius}
@@ -239,6 +272,10 @@ const Home = () => {
         onPresenceTap={(presence) => {
           console.log('Tapped spontaneous presence:', presence);
           // Could navigate to details or show more info
+        }}
+        onModeChange={(mode) => {
+          console.log('Home component - onModeChange called with mode:', mode);
+          setCurrentTabMode(mode);
         }}
       />
       <EventModal visible={!!openEventId} eventId={openEventId} onClose={() => setOpenEventId(null)} />
@@ -308,31 +345,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spontaneousButton: {
+  spontaneousButtonBorder: {
     position: 'absolute',
-    bottom: 140,
-    alignSelf: 'center',
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    bottom: 20,
+    right: 20,
+    borderRadius: 22,
+    padding: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
     zIndex: 1000,
   },
+  spontaneousButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   spontaneousButtonActive: {
-    backgroundColor: '#f44336',
+    backgroundColor: 'rgba(255, 99, 71, 0.3)',
+    borderColor: 'rgba(255, 99, 71, 0.5)',
   },
   spontaneousButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  gradientTextContainer: {
+    borderRadius: 0,
+  },
+  gradientText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6a5acd',
   },
   presenceMarker: {
     width: 50,
