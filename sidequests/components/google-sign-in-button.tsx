@@ -51,6 +51,7 @@ export default function GoogleSignInButton() {
     }
 
     console.log(googleOAuthUrl)
+    console.log(EXPO_API_URL)
 
     const result = await WebBrowser.openAuthSessionAsync(
       googleOAuthUrl,

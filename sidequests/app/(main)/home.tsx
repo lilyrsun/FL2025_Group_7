@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { darkMode, lightMode } from '../../constants/mapStyles';
@@ -9,13 +10,24 @@ import EventModal from "../../components/EventModal";
 import { Event } from '../../types/event';
 import { BACKEND_API_URL } from '@env';
 import { RadiusCircle } from '../../components/RadiusCircle';
+import { useAuth } from '../../context/AuthContext';
+import { useSpontaneous } from '../../hooks/useSpontaneous';
+import SpontaneousModal from '../../components/SpontaneousModal';
 
 const Home = () => {
+  const { user } = useAuth();
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [radiusMi, setRadiusMi] = useState(5);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const [showSpontaneousSheet, setShowSpontaneousSheet] = useState(false);
+  const [localIsSharing, setLocalIsSharing] = useState(false);
+
+  const { presences: spontaneousPresences, fetchNearbyPresences } = useSpontaneous(user?.id || null);
+  
+  // Combine remote and local state for isSharing
+  const isSharing = localIsSharing;
 
   const filteredByRadius = useMemo(() => {
     if (!location) return events;
@@ -106,6 +118,13 @@ const Home = () => {
     return () => clearInterval(intervalId);
   }, [BACKEND_API_URL]);
 
+  // Fetch nearby spontaneous presences when location changes
+  useEffect(() => {
+    if (location && user?.id) {
+      fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
+    }
+  }, [location, radiusMi, user?.id, fetchNearbyPresences]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -139,6 +158,7 @@ const Home = () => {
             image={require("../../assets/icons/map-pin.png")}
           /> */}
 
+          {/* RSVP Events */}
           {filteredByRadius.map((event) => (
             <Marker
               key={event.id}
@@ -152,6 +172,35 @@ const Home = () => {
               onPress={() => setOpenEventId(event.id)}
             />
           ))}
+
+          {/* Spontaneous Presences */}
+          {spontaneousPresences.map((presence) => (
+            <Marker
+              key={presence.id}
+              coordinate={{
+                latitude: presence.latitude,
+                longitude: presence.longitude,
+              }}
+              title={presence.users?.name || 'Friend'}
+              description={presence.status_text}
+              onPress={() => {
+                // Could show a modal with join option
+                console.log('Tapped spontaneous presence:', presence);
+              }}
+            >
+              {presence.users?.profile_picture ? (
+                <View style={styles.presenceMarker}>
+                  <Image
+                    source={{ uri: presence.users.profile_picture }}
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.statusDot} />
+                </View>
+              ) : (
+                <Ionicons name="radio-button-on" size={32} color="#4CAF50" />
+              )}
+            </Marker>
+          ))}
         </MapView>
       )}
 
@@ -164,8 +213,54 @@ const Home = () => {
           <Text style={styles.radiusBtnText}>+</Text>
         </TouchableOpacity>
       </View>
-      <EventBottomSheet events={filteredByRadius} onOpen={(id) => setOpenEventId(id)} />
+
+      {/* Spontaneous event button */}
+      <TouchableOpacity
+        style={[styles.spontaneousButton, isSharing && styles.spontaneousButtonActive]}
+        onPress={() => {
+          console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
+          setShowSpontaneousSheet(true);
+        }}
+      >
+        <Ionicons
+          name={isSharing ? "radio-button-on" : "radio-button-off"}
+          size={24}
+          color="#fff"
+        />
+        <Text style={styles.spontaneousButtonText}>
+          {isSharing ? "Sharing..." : "Start Spontaneous"}
+        </Text>
+      </TouchableOpacity>
+
+      <EventBottomSheet
+        events={filteredByRadius}
+        spontaneousPresences={spontaneousPresences}
+        onOpen={(id) => setOpenEventId(id)}
+        onPresenceTap={(presence) => {
+          console.log('Tapped spontaneous presence:', presence);
+          // Could navigate to details or show more info
+        }}
+      />
       <EventModal visible={!!openEventId} eventId={openEventId} onClose={() => setOpenEventId(null)} />
+      
+      <SpontaneousModal
+        isVisible={showSpontaneousSheet}
+        onClose={() => {
+          console.log('SpontaneousModal closing');
+          setShowSpontaneousSheet(false);
+        }}
+        isActive={isSharing}
+        onStart={() => {
+          setLocalIsSharing(true);
+          // Refresh nearby presences
+          if (location) {
+            fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
+          }
+        }}
+        onStop={() => {
+          setLocalIsSharing(false);
+        }}
+      />
     </View>
   );
 };
@@ -212,5 +307,57 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  spontaneousButton: {
+    position: 'absolute',
+    bottom: 140,
+    alignSelf: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  spontaneousButtonActive: {
+    backgroundColor: '#f44336',
+  },
+  spontaneousButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  presenceMarker: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
 });

@@ -25,6 +25,8 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 - **Join Spontaneous Events:** live posts of what users are doing now, with quick access to directions and the ability to ping the user to coordinate plans
 - **Join RSVP-Style Events:** event details (event name, date, time, location, description), see who else has RSVPed, and the ability to RSVP with a single tap
 - **Create & Manage Posts:** add event info and images, control visibility through privacy settings, edit/delete posts as needed
+- **Real-Time Location Sharing:** share your live location with friends for spontaneous hangouts (similar to "Find My" but for social events)
+- **Auto-Expiring Presences:** spontaneous presences automatically expire after 10 minutes for privacy
 - **Your Plot:** personal hub, broken down across three tabs:
   - **Wishlist:** saved locations you want to make plans at
   - **Upcoming Events:** events you've RSVPed for
