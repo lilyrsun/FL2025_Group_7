@@ -175,22 +175,48 @@ export function useSpontaneous(userId: string | null) {
 
           // Handle INSERT, UPDATE, DELETE
           if (payload.eventType === 'INSERT') {
-            // Only add if it's not the current user's presence
-            if (payload.new.user_id !== userId) {
-              // Fetch the updated list
+            // Handle current user's presence
+            if (payload.new.user_id === userId) {
+              setMyPresence(payload.new as SpontaneousPresence);
+              setIsSharing(true);
+              startLocationTracking(payload.new.id);
+            } else {
+              // Fetch the updated list for other users
               fetchNearbyPresences(0, 0);
             }
           } else if (payload.eventType === 'UPDATE') {
-            // Update or remove based on is_active
-            setPresences((prev) => {
-              if (payload.new.is_active && payload.new.user_id !== userId) {
-                return [...prev.filter(p => p.id !== payload.new.id), payload.new as SpontaneousPresence];
+            // Handle current user's presence update
+            if (payload.new.user_id === userId) {
+              console.log('Current user presence updated:', payload.new);
+              if (payload.new.is_active) {
+                setMyPresence(payload.new as SpontaneousPresence);
+                setIsSharing(true);
+                console.log('Set isSharing to true');
               } else {
-                return prev.filter(p => p.id !== payload.old.id);
+                setMyPresence(null);
+                setIsSharing(false);
+                stopLocationTracking();
+                console.log('Set isSharing to false');
               }
-            });
+            } else {
+              // Update or remove based on is_active for other users
+              setPresences((prev) => {
+                if (payload.new.is_active && payload.new.user_id !== userId) {
+                  return [...prev.filter(p => p.id !== payload.new.id), payload.new as SpontaneousPresence];
+                } else {
+                  return prev.filter(p => p.id !== payload.old.id);
+                }
+              });
+            }
           } else if (payload.eventType === 'DELETE') {
-            setPresences((prev) => prev.filter((p) => p.id !== payload.old.id));
+            // Handle current user's presence deletion
+            if (payload.old.user_id === userId) {
+              setMyPresence(null);
+              setIsSharing(false);
+              stopLocationTracking();
+            } else {
+              setPresences((prev) => prev.filter((p) => p.id !== payload.old.id));
+            }
           }
         }
       )
@@ -208,6 +234,30 @@ export function useSpontaneous(userId: string | null) {
     };
   }, []);
 
+  // Manual refresh of user's presence (useful after stop operations)
+  const refreshMyPresence = useCallback(async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/spontaneous/me/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMyPresence(data);
+        setIsSharing(true);
+        startLocationTracking(data.id);
+      } else {
+        setMyPresence(null);
+        setIsSharing(false);
+        stopLocationTracking();
+      }
+    } catch (error) {
+      console.error('Error refreshing my presence:', error);
+      setMyPresence(null);
+      setIsSharing(false);
+      stopLocationTracking();
+    }
+  }, [userId]);
+
   return {
     presences,
     myPresence,
@@ -215,6 +265,7 @@ export function useSpontaneous(userId: string | null) {
     fetchNearbyPresences,
     startLocationTracking,
     stopLocationTracking,
+    refreshMyPresence,
   };
 }
 

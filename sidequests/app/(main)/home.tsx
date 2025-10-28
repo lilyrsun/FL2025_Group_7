@@ -26,15 +26,17 @@ const Home = () => {
   const [localIsSharing, setLocalIsSharing] = useState(false);
   const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
 
-  const { presences: spontaneousPresences, fetchNearbyPresences } = useSpontaneous(user?.id || null);
+  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence } = useSpontaneous(user?.id || null);
   
   // Combine remote and local state for isSharing
-  const isSharing = localIsSharing;
+  const isSharing = localIsSharing || remoteIsSharing;
 
   // Debug logging
   console.log('Home component - currentTabMode:', currentTabMode);
   console.log('Home component - spontaneousPresences:', spontaneousPresences);
   console.log('Home component - isSharing:', isSharing);
+  console.log('Home component - localIsSharing:', localIsSharing);
+  console.log('Home component - remoteIsSharing:', remoteIsSharing);
 
   const filteredByRadius = useMemo(() => {
     if (!location) return events;
@@ -300,7 +302,13 @@ const Home = () => {
           }
         }}
         onStop={() => {
+          console.log('SpontaneousModal onStop called');
           setLocalIsSharing(false);
+          // Refresh the user's presence state after stopping
+          setTimeout(() => {
+            console.log('Refreshing presence after stop');
+            refreshMyPresence();
+          }, 1000);
         }}
       />
     </View>
