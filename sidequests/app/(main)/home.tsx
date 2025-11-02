@@ -1,21 +1,42 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import { darkMode, lightMode } from '../../constants/mapStyles';
 import EventBottomSheet from "../../components/EventBottomSheet";
 import EventModal from "../../components/EventModal";
 import { Event } from '../../types/event';
 import { BACKEND_API_URL } from '@env';
 import { RadiusCircle } from '../../components/RadiusCircle';
+import { useAuth } from '../../context/AuthContext';
+import { useSpontaneous } from '../../hooks/useSpontaneous';
+import SpontaneousModal from '../../components/SpontaneousModal';
 
 const Home = () => {
+  const { user } = useAuth();
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [radiusMi, setRadiusMi] = useState(5);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const [showSpontaneousSheet, setShowSpontaneousSheet] = useState(false);
+  const [localIsSharing, setLocalIsSharing] = useState(false);
+  const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
+
+  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence } = useSpontaneous(user?.id || null);
+  
+  // Combine remote and local state for isSharing
+  const isSharing = localIsSharing || remoteIsSharing;
+
+  // Debug logging
+  console.log('Home component - currentTabMode:', currentTabMode);
+  console.log('Home component - spontaneousPresences:', spontaneousPresences);
+  console.log('Home component - isSharing:', isSharing);
+  console.log('Home component - localIsSharing:', localIsSharing);
+  console.log('Home component - remoteIsSharing:', remoteIsSharing);
 
   const filteredByRadius = useMemo(() => {
     if (!location) return events;
@@ -35,6 +56,24 @@ const Home = () => {
 
   useEffect(() => {
     (async () => {
+      // For demo purposes, use San Francisco coordinates
+      // TODO: Replace with real location in production
+      const demoLocation = {
+        latitude: 37.7749,
+        longitude: -122.4194,
+        accuracy: 10,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      };
+      
+      console.log('Using demo location:', demoLocation);
+      setLocation(demoLocation);
+      setLoading(false);
+      
+      // Uncomment below for real location in production:
+      /*
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.log('Permission to access location was denied');
@@ -45,6 +84,7 @@ const Home = () => {
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
       setLoading(false);
+      */
     })();
   }, []);
 
@@ -106,6 +146,14 @@ const Home = () => {
     return () => clearInterval(intervalId);
   }, [BACKEND_API_URL]);
 
+  // Fetch nearby spontaneous presences when location changes
+  useEffect(() => {
+    if (location && user?.id) {
+      console.log('Fetching nearby presences for location:', location.latitude, location.longitude, 'radius:', radiusMi);
+      fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
+    }
+  }, [location, radiusMi, user?.id, fetchNearbyPresences]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -139,6 +187,7 @@ const Home = () => {
             image={require("../../assets/icons/map-pin.png")}
           /> */}
 
+          {/* RSVP Events */}
           {filteredByRadius.map((event) => (
             <Marker
               key={event.id}
@@ -152,6 +201,35 @@ const Home = () => {
               onPress={() => setOpenEventId(event.id)}
             />
           ))}
+
+          {/* Spontaneous Presences */}
+          {spontaneousPresences.map((presence) => (
+            <Marker
+              key={presence.id}
+              coordinate={{
+                latitude: presence.latitude,
+                longitude: presence.longitude,
+              }}
+              title={presence.users?.name || 'Friend'}
+              description={presence.status_text}
+              onPress={() => {
+                // Could show a modal with join option
+                console.log('Tapped spontaneous presence:', presence);
+              }}
+            >
+              {presence.users?.profile_picture ? (
+                <View style={styles.presenceMarker}>
+                  <Image
+                    source={{ uri: presence.users.profile_picture }}
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.statusDot} />
+                </View>
+              ) : (
+                <Ionicons name="radio-button-on" size={32} color="#4CAF50" />
+              )}
+            </Marker>
+          ))}
         </MapView>
       )}
 
@@ -164,8 +242,75 @@ const Home = () => {
           <Text style={styles.radiusBtnText}>+</Text>
         </TouchableOpacity>
       </View>
-      <EventBottomSheet events={filteredByRadius} onOpen={(id) => setOpenEventId(id)} />
+
+      {/* Spontaneous event button - show "Start Spontaneous" only on Spontaneous tab, "Sharing..." on both tabs */}
+      {(currentTabMode === "Spontaneous" || isSharing) && (
+        <LinearGradient
+          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.spontaneousButtonBorder}
+        >
+          <TouchableOpacity
+            style={[styles.spontaneousButton, isSharing && styles.spontaneousButtonActive]}
+            onPress={() => {
+              console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
+              setShowSpontaneousSheet(true);
+            }}
+          >
+            <Ionicons
+              name={isSharing ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.spontaneousButtonText}>
+              {isSharing ? "Sharing..." : "Start Spontaneous"}
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      )}
+
+      <EventBottomSheet
+        events={filteredByRadius}
+        spontaneousPresences={spontaneousPresences}
+        onOpen={(id) => setOpenEventId(id)}
+        onPresenceTap={(presence) => {
+          console.log('Tapped spontaneous presence:', presence);
+          // Could navigate to details or show more info
+        }}
+        onModeChange={(mode) => {
+          console.log('Home component - onModeChange called with mode:', mode);
+          setCurrentTabMode(mode);
+        }}
+      />
       <EventModal visible={!!openEventId} eventId={openEventId} onClose={() => setOpenEventId(null)} />
+      
+      <SpontaneousModal
+        isVisible={showSpontaneousSheet}
+        onClose={() => {
+          console.log('SpontaneousModal closing');
+          setShowSpontaneousSheet(false);
+        }}
+        isActive={isSharing}
+        onStart={() => {
+          console.log('SpontaneousModal onStart called');
+          setLocalIsSharing(true);
+          // Refresh nearby presences
+          if (location) {
+            console.log('Manually fetching presences after start');
+            fetchNearbyPresences(location.latitude, location.longitude, radiusMi);
+          }
+        }}
+        onStop={() => {
+          console.log('SpontaneousModal onStop called');
+          setLocalIsSharing(false);
+          // Refresh the user's presence state after stopping
+          setTimeout(() => {
+            console.log('Refreshing presence after stop');
+            refreshMyPresence();
+          }, 1000);
+        }}
+      />
     </View>
   );
 };
@@ -212,5 +357,81 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  spontaneousButtonBorder: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    borderRadius: 22,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    zIndex: 1000,
+  },
+  spontaneousButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  spontaneousButtonActive: {
+    backgroundColor: 'rgba(255, 99, 71, 0.3)',
+    borderColor: 'rgba(255, 99, 71, 0.5)',
+  },
+  spontaneousButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  gradientTextContainer: {
+    borderRadius: 0,
+  },
+  gradientText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6a5acd',
+  },
+  presenceMarker: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
 });
