@@ -7,7 +7,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { BACKEND_API_URL } from '@env';
 import { Ionicons } from '@expo/vector-icons';
-import type { Event } from '../../../types/event';
 
 interface Friend {
   id: string;
@@ -41,7 +40,6 @@ const Profile = () => {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
-  const [upcomingRsvps, setUpcomingRsvps] = useState<Event[]>([]);
 
   useEffect(() => {
     loadFriendsData();
@@ -79,13 +77,6 @@ const Profile = () => {
 
       if (sentReponse.ok) {
         setSentRequests(sentData);
-      }
-
-      // Load upcoming RSVPs
-      const rsvpsResponse = await fetch(`${BACKEND_API_URL}/rsvps/user/${user?.id}`);
-      const rsvpsData = await rsvpsResponse.json();
-      if (rsvpsResponse.ok) {
-        setUpcomingRsvps(rsvpsData);
       }
     } catch (error) {
       console.error('Failed to load friends data:', error);
@@ -155,29 +146,6 @@ const Profile = () => {
           </LinearGradient>
         </View>
 
-        {/* Upcoming RSVPs */}
-        <View style={styles.section}>
-          <Text style={styles.inputLabel}>Upcoming RSVPs</Text>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.infoGradient}
-          >
-            {upcomingRsvps.length === 0 ? (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>No upcoming RSVPs</Text>
-              </View>
-            ) : (
-              upcomingRsvps.map((evt) => (
-                <View key={evt.id} style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>{evt.title}</Text>
-                  <Text style={styles.infoValue}>{evt.date ? new Date(evt.date).toLocaleString() : evt.type}</Text>
-                </View>
-              ))
-            )}
-          </LinearGradient>
-        </View>
 
         {/* Friends Section */}
         <View style={styles.section}>

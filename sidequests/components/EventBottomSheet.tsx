@@ -98,7 +98,7 @@ const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], 
       {mode === "Spontaneous" ? (
         <BottomSheetFlatList<SpontaneousPresence>
           data={spontaneousPresences}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: SpontaneousPresence) => item.id}
           renderItem={renderPresenceItem}
           ListEmptyComponent={
             <View style={styles.emptyState}>

@@ -9,16 +9,15 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-  Keyboard,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Modal
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Entypo } from "@expo/vector-icons";
+import { Entypo, Ionicons } from "@expo/vector-icons";
 import { BACKEND_API_URL } from "@env";
-import PickLocation from "../../components/PickLocation";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../context/AuthContext";
+import PickLocation from "./PickLocation";
+import { useAuth } from "../context/AuthContext";
 
 const datestringOptions: Intl.DateTimeFormatOptions = {
   weekday: "long",
@@ -27,19 +26,19 @@ const datestringOptions: Intl.DateTimeFormatOptions = {
   day: "numeric",
 };
 
-const CreateEvent = () => {
-  const insets = useSafeAreaInsets();
-  const statusBarHeight = insets.top + 24;
+type Props = {
+  isVisible: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+};
 
+const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) => {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [type, setType] = useState<"RSVP" | "Spontaneous">("RSVP");
-
   const [selectedLocation, setSelectedLocation] = useState<{ address: string; lat: number; lng: number } | null>(null);
   const [query, setQuery] = useState("");
-
   const [loading, setLoading] = useState(false);
 
   const { user } = useAuth();
@@ -50,8 +49,7 @@ const CreateEvent = () => {
       return;
     }
 
-    // For spontaneous events, we don't require a date
-    if (type === "RSVP" && !date) {
+    if (!date) {
       Alert.alert("Error", "Please select a date for RSVP events");
       return;
     }
@@ -59,18 +57,15 @@ const CreateEvent = () => {
     try {
       setLoading(true);
 
-      let isoDate: string | null = null;
-      if (date) {
-        isoDate = date.toISOString().replace("T", " ");
-      }
+      const isoDate = date.toISOString().replace("T", " ");
 
       const res = await fetch(`${BACKEND_API_URL}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          date: isoDate, // date+time if provided
-          type,
+          date: isoDate,
+          type: "RSVP",
           latitude: selectedLocation?.lat,
           longitude: selectedLocation?.lng,
           user_id: user?.id,
@@ -79,15 +74,29 @@ const CreateEvent = () => {
 
       const data = await res.json();
 
-      if (res.ok) {
-        Alert.alert("Success", "Event created!");
-        setTitle("");
-        setDate(null);
-        setSelectedLocation(null);
-        setQuery("");
-      } else {
+      if (!res.ok) {
         Alert.alert("Error", data.error || "Something went wrong");
+        return;
       }
+
+      console.log("Event created successfully:", data);
+
+      // Reset form
+      setTitle("");
+      setDate(null);
+      setSelectedLocation(null);
+      setQuery("");
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+      
+      // Close modal first
+      onClose();
+      
+      // Call success callback to refresh events after a brief delay
+      // This ensures the database transaction has fully committed
+      setTimeout(() => {
+        onSuccess?.();
+      }, 300);
     } catch (err: any) {
       console.error(err);
       Alert.alert("Error", "Could not connect to server");
@@ -97,7 +106,7 @@ const CreateEvent = () => {
   };
 
   const onChangeDate = (_event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === "ios"); // keep picker open for iOS
+    setShowDatePicker(Platform.OS === "ios");
     if (selectedDate) {
       setDate(selectedDate);
     }
@@ -115,90 +124,63 @@ const CreateEvent = () => {
     }
   };
 
-  const handleTypeChange = (newType: "RSVP" | "Spontaneous") => {
-    setType(newType);
-    // If switching to spontaneous, clear the date and hide picker
-    if (newType === "Spontaneous") {
-      setDate(null);
-      setShowDatePicker(false);
-    }
+  const handleClose = () => {
+    // Reset form when closing
+    setTitle("");
+    setDate(null);
+    setSelectedLocation(null);
+    setQuery("");
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    onClose();
   };
 
   return (
-    <LinearGradient
-      colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.gradientContainer}
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      <KeyboardAvoidingView behavior="padding" style={{flex: 1}}>
-        <ScrollView 
-          style={styles.container} 
-          contentContainerStyle={[styles.scrollContent, { paddingTop: statusBarHeight }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Text style={styles.heading}>✨ Create Event</Text>
-            <Text style={styles.subheading}>Let's make something amazing happen!</Text>
-          </View>
+      <LinearGradient
+        colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+            <Ionicons name="close" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>✨ Create Event</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-          <View style={styles.formContainer}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Event Title</Text>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                style={styles.inputGradient}
-              >
-                <TextInput
-                  style={styles.input}
-                  placeholder="What's the vibe? 🌟"
-                  placeholderTextColor="rgba(106, 90, 205, 0.6)"
-                  value={title}
-                  onChangeText={setTitle}
-                />
-              </LinearGradient>
-            </View>
-
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Event Type</Text>
-              <View style={styles.toggleContainer}>
-                <TouchableOpacity
-                  style={[styles.toggleBtn, type === "RSVP" && styles.activeToggle]}
-                  onPress={() => handleTypeChange("RSVP")}
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+          <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.formContainer}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Event Title</Text>
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={styles.inputGradient}
                 >
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                    style={styles.toggleGradient}
-                  >
-                    <View style={[styles.toggleContent, type === "RSVP" && styles.activeToggleContent]}>
-                      <Text style={[styles.toggleText, type === "RSVP" && styles.activeToggleText]}>
-                        🎫 RSVP
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.toggleBtn, type === "Spontaneous" && styles.activeToggle]}
-                  onPress={() => handleTypeChange("Spontaneous")}
-                >
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                    style={styles.toggleGradient}
-                  >
-                    <View style={[styles.toggleContent, type === "Spontaneous" && styles.activeToggleContent]}>
-                      <Text style={[styles.toggleText, type === "Spontaneous" && styles.activeToggleText]}>
-                        ⚡ Spontaneous
-                      </Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="What's the vibe? 🌟"
+                    placeholderTextColor="rgba(106, 90, 205, 0.6)"
+                    value={title}
+                    onChangeText={setTitle}
+                  />
+                </LinearGradient>
               </View>
-            </View>
 
-            {type === "RSVP" && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Date & Time</Text>
                 <LinearGradient
@@ -276,44 +258,62 @@ const CreateEvent = () => {
                   </LinearGradient>
                 )}
               </View>
-            )}
 
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Location</Text>
-              <View style={styles.locationContainer}>
-                <PickLocation selected={selectedLocation} setSelected={setSelectedLocation} query={query} setQuery={setQuery} />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Location</Text>
+                <View style={styles.locationContainer}>
+                  <PickLocation selected={selectedLocation} setSelected={setSelectedLocation} query={query} setQuery={setQuery} />
+                </View>
               </View>
             </View>
-          </View>
 
-          <TouchableOpacity 
-            style={styles.submitContainer}
-            onPress={handleSubmit} 
-            disabled={loading}
-          >
-            <LinearGradient
-              colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitGradient}
+            <TouchableOpacity 
+              style={styles.submitContainer}
+              onPress={handleSubmit} 
+              disabled={loading}
             >
-              <Text style={styles.submitText}>
-                {loading ? "Creating magic... ✨" : "Create Event"}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+              <LinearGradient
+                colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.submitGradient}
+              >
+                <Text style={styles.submitText}>
+                  {loading ? "Creating magic... ✨" : "Create Event"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Modal>
   );
 };
-
-export default CreateEvent;
 
 const styles = StyleSheet.create({
   gradientContainer: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
   },
   container: {
     flex: 1,
@@ -321,23 +321,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 24,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  heading: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subheading: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    fontWeight: '500',
   },
   formContainer: {
     // marginBottom: 24,
@@ -384,47 +367,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  toggleContainer: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  toggleBtn: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  toggleGradient: {
-    padding: 2,
-    borderRadius: 16,
-  },
-  toggleContent: {
-    padding: 14,
-    alignItems: 'center',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  activeToggleContent: {
-    backgroundColor: 'transparent',
-  },
-  activeToggle: {
-    shadowColor: '#6a5acd',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    borderColor: "#9b59b6",
-  },
-  toggleText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  activeToggleText: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
   submitContainer: {
     marginTop: 20,
     borderRadius: 20,
@@ -450,3 +392,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
 });
+
+export default CreateEventModal;
+
