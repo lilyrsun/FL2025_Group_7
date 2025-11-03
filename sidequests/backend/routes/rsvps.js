@@ -3,41 +3,37 @@ import { Router } from "express";
 export default function rsvpRoutes(supabase) {
   const router = Router();
 
-  // Set RSVP status: "yes" or "no"
+  // RSVP to an event
   router.post("/", async (req, res) => {
-    const { user_id, event_id, status } = req.body; // "yes" or "no"
+    const { user_id, event_id } = req.body;
 
-    if (!user_id || !event_id)
-      return res.status(400).json({ error: "Missing parameters" });
+    const { data, error } = await supabase
+      .from("event_rsvps")
+      .insert([{ user_id, event_id }]);
 
-    if (status === "yes" || status === "no") {
-      const { data, error } = await supabase
-        .from("event_rsvps")
-        .upsert([{ user_id, event_id, status }], { onConflict: "user_id,event_id" });
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+  });
 
-      if (error) return res.status(400).json({ error: error.message });
-      return res.json(data);
-    }
+  // Cancel RSVP
+  router.delete("/", async (req, res) => {
+    const { userId, eventId } = req.body;
 
-    // If neither yes nor no, remove RSVP
-    if (!status) {
-      const { error } = await supabase
-        .from("event_rsvps")
-        .delete()
-        .eq("user_id", user_id)
-        .eq("event_id", event_id);
-        
-      if (error) return res.status(400).json({ error: error.message });
-      return res.json({ success: true });
-    }
+    const { error } = await supabase
+      .from("event_rsvps")
+      .delete()
+      .eq("user_id", userId)
+      .eq("event_id", eventId);
 
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ success: true });
   });
 
   // Get RSVPs for an event
   router.get("/:eventId", async (req, res) => {
     const { data, error } = await supabase
       .from("event_rsvps")
-      .select("user_id, status, users(name, email, profile_picture)")
+      .select("user_id, users(name, email, profile_picture)")
       .eq("event_id", req.params.eventId);
 
     if (error) return res.status(400).json({ error: error.message });

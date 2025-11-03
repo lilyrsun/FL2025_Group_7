@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { Image } from "react-native";
-import { Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function MainLayout() {
   return (
@@ -22,13 +22,10 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="create-event"
+        name="your-plot"
         options={{
-          tabBarIcon: ({ size }) => (
-            <Image
-              source={require("../../assets/icons/add.png")}
-              style={{ width: size*3, height: size*3, resizeMode: "contain" }}
-            />
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="book" size={size*2} color={color || "#ffffff"} />
           ),
         }}
       />

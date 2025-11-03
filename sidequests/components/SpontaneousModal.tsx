@@ -5,12 +5,12 @@ import { BACKEND_API_URL } from '@env';
 import { useAuth } from '../context/AuthContext';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
   isVisible: boolean;
   onClose: () => void;
   isActive: boolean;
+  currentStatusText?: string;
   onStart: () => void;
   onStop: () => void;
 };
@@ -19,13 +19,13 @@ const SpontaneousModal: React.FC<Props> = ({
   isVisible,
   onClose,
   isActive,
+  currentStatusText,
   onStart,
   onStop,
 }) => {
   const [statusText, setStatusText] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
 
   const handleStart = async () => {
     if (!user?.id) {
@@ -35,13 +35,23 @@ const SpontaneousModal: React.FC<Props> = ({
 
     setLoading(true);
     try {
-      // For demo purposes, use temporary San Francisco coordinates
-      // TODO: Replace with real location in production
-      const latitude = 37.7749 + (Math.random() - 0.5) * 0.01; // SF downtown area with slight variation
-      const longitude = -122.4194 + (Math.random() - 0.5) * 0.01;
-      const accuracy = 10; // Mock accuracy
+      // Request location permissions and get current location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Location permission is required to share your location');
+        setLoading(false);
+        return;
+      }
 
-      console.log('Using demo coordinates:', { latitude, longitude });
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const latitude = location.coords.latitude;
+      const longitude = location.coords.longitude;
+      const accuracy = location.coords.accuracy || 10;
+
+      console.log('Using real coordinates:', { latitude, longitude, accuracy });
 
       const response = await fetch(`${BACKEND_API_URL}/spontaneous/start`, {
         method: 'POST',
@@ -196,6 +206,15 @@ const SpontaneousModal: React.FC<Props> = ({
                       <Text style={styles.activeText}>Location is being shared</Text>
                     </View>
 
+                    {currentStatusText && (
+                      <View style={styles.infoBoxLight}>
+                        <Ionicons name="chatbubble-outline" size={20} color="#ffffff" />
+                        <Text style={styles.infoTextLight}>
+                          Status: {currentStatusText}
+                        </Text>
+                      </View>
+                    )}
+
                     <View style={styles.infoBoxLight}>
                       <Text style={styles.infoTextLight}>
                         Your friends can see your live location and join you.
@@ -296,6 +315,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginBottom: 20,
+    alignItems: 'center',
   },
   infoTextLight: {
     fontSize: 13,

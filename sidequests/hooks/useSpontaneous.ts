@@ -181,8 +181,36 @@ export function useSpontaneous(userId: string | null) {
               setIsSharing(true);
               startLocationTracking(payload.new.id);
             } else {
-              // Fetch the updated list for other users
-              fetchNearbyPresences(0, 0);
+              // For friend's presence, add it to the list if it's active
+              // Note: Location filtering will happen when fetchNearbyPresences is called with real location
+              if (payload.new.is_active && payload.new.user_id !== userId) {
+                console.log('Friend started sharing location, adding to presences list:', payload.new);
+                // Fetch full presence data with user info from backend
+                fetch(`${BACKEND_API_URL}/spontaneous/me/${payload.new.user_id}`)
+                  .then(res => {
+                    if (res.ok) {
+                      return res.json();
+                    }
+                    if (res.status === 404) {
+                      console.log('Friend presence not found (might have expired)');
+                      return null;
+                    }
+                    throw new Error(`Failed to fetch: ${res.status}`);
+                  })
+                  .then(data => {
+                    if (data && data.is_active) {
+                      setPresences((prev) => {
+                        // Only add if not already in list
+                        if (!prev.find(p => p.id === data.id)) {
+                          console.log('Adding friend presence to list:', data);
+                          return [...prev, data as SpontaneousPresence];
+                        }
+                        return prev;
+                      });
+                    }
+                  })
+                  .catch(err => console.error('Error fetching friend presence:', err));
+              }
             }
           } else if (payload.eventType === 'UPDATE') {
             // Handle current user's presence update
@@ -200,13 +228,49 @@ export function useSpontaneous(userId: string | null) {
               }
             } else {
               // Update or remove based on is_active for other users
-              setPresences((prev) => {
-                if (payload.new.is_active && payload.new.user_id !== userId) {
-                  return [...prev.filter(p => p.id !== payload.new.id), payload.new as SpontaneousPresence];
-                } else {
-                  return prev.filter(p => p.id !== payload.old.id);
-                }
-              });
+              if (payload.new.is_active && payload.new.user_id !== userId) {
+                // Fetch full presence data with user info for friends
+                fetch(`${BACKEND_API_URL}/spontaneous/me/${payload.new.user_id}`)
+                  .then(res => {
+                    if (res.ok) {
+                      return res.json();
+                    }
+                    return null;
+                  })
+                  .then(data => {
+                    if (data && data.is_active) {
+                      setPresences((prev) => {
+                        const existing = prev.find(p => p.id === data.id);
+                        if (existing) {
+                          // Update existing
+                          return prev.map(p => p.id === data.id ? data as SpontaneousPresence : p);
+                        } else {
+                          // Add new
+                          return [...prev, data as SpontaneousPresence];
+                        }
+                      });
+                    } else {
+                      // Remove if not active
+                      setPresences((prev) => prev.filter(p => p.id !== payload.old.id));
+                    }
+                  })
+                  .catch(err => {
+                    console.error('Error fetching updated friend presence:', err);
+                    // Fallback to direct update if fetch fails
+                    setPresences((prev) => {
+                      if (payload.new.is_active) {
+                        const existing = prev.find(p => p.id === payload.new.id);
+                        if (existing) {
+                          return prev.map(p => p.id === payload.new.id ? payload.new as SpontaneousPresence : p);
+                        }
+                      }
+                      return prev.filter(p => p.id !== payload.old.id);
+                    });
+                  });
+              } else {
+                // Remove if not active
+                setPresences((prev) => prev.filter(p => p.id !== payload.old.id));
+              }
             }
           } else if (payload.eventType === 'DELETE') {
             // Handle current user's presence deletion

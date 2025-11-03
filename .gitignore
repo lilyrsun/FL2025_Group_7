@@ -42,3 +42,4 @@ yarn-error.*
 /android
 
 google_client_secret.com.json
+client_secret_file.json

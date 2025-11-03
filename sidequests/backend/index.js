@@ -30,6 +30,8 @@ import uploadRoutes from "./routes/upload.js";
 import rsvpRoutes from "./routes/rsvps.js";
 import friendsRoutes from "./routes/friends.js";
 import spontaneousRoutes from "./routes/spontaneous.js";
+import wishlistRoutes from "./routes/wishlist.js";
+import diaryRoutes from "./routes/diary.js";
 
 app.use("/users", userRoutes(supabase));
 app.use("/events", eventRoutes(supabase));
@@ -37,6 +39,8 @@ app.use("/friends", friendsRoutes(supabase));
 app.use("/upload", uploadRoutes(supabase));
 app.use("/rsvps", rsvpRoutes(supabase));
 app.use("/spontaneous", spontaneousRoutes(supabase));
+app.use("/wishlist", wishlistRoutes(supabase));
+app.use("/diary", diaryRoutes(supabase));
 
 
 const PORT = process.env.PORT || 4000;

@@ -211,21 +211,29 @@ export default function spontaneousRoutes(supabase) {
       const R = 3958.8; // Earth radius in miles
       const toRad = (d) => (d * Math.PI) / 180;
 
+      const requestLat = parseFloat(latitude);
+      const requestLon = parseFloat(longitude);
+      const requestRadius = parseFloat(radius_miles);
+
       console.log('Debug - allPresences:', allPresences);
       console.log('Debug - friendIds:', friendIds);
       console.log('Debug - requesting user_id:', user_id);
+      console.log('Debug - request location:', { latitude: requestLat, longitude: requestLon, radius_miles: requestRadius });
 
       const nearbyPresences = allPresences?.filter((p) => {
-        const dLat = toRad(p.latitude - parseFloat(latitude));
-        const dLon = toRad(p.longitude - parseFloat(longitude));
-        const lat1 = toRad(parseFloat(latitude));
+        const dLat = toRad(p.latitude - requestLat);
+        const dLon = toRad(p.longitude - requestLon);
+        const lat1 = toRad(requestLat);
         const lat2 = toRad(p.latitude);
         const a =
           Math.sin(dLat / 2) ** 2 +
           Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const d = R * c;
-        return d <= parseFloat(radius_miles);
+        
+        console.log(`Debug - presence ${p.user_id} distance: ${d.toFixed(2)} miles (within ${requestRadius}? ${d <= requestRadius})`);
+        
+        return d <= requestRadius;
       });
 
       console.log('Debug - nearbyPresences:', nearbyPresences);
@@ -262,6 +270,133 @@ export default function spontaneousRoutes(supabase) {
       res.json(data);
     } catch (error) {
       console.error("Error fetching user's presence:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Join/update participation in a spontaneous presence (MUST come before /:presence_id route)
+  router.post("/participate", async (req, res) => {
+    const { user_id, presence_id, status } = req.body; // status: "coming" | "there" | null
+
+    if (!user_id || !presence_id) {
+      return res.status(400).json({ error: "user_id and presence_id are required" });
+    }
+
+    if (status && !["coming", "there"].includes(status)) {
+      return res.status(400).json({ error: "status must be 'coming' or 'there'" });
+    }
+
+    try {
+      // Check if participant already exists
+      const { data: existing, error: checkError } = await supabase
+        .from("spontaneous_presence_participants")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("presence_id", presence_id)
+        .single();
+
+      if (checkError && checkError.code !== "PGRST116") {
+        throw checkError;
+      }
+
+      if (status === null || status === undefined) {
+        // Remove participation
+        if (existing) {
+          const { error: deleteError } = await supabase
+            .from("spontaneous_presence_participants")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("presence_id", presence_id);
+
+          if (deleteError) throw deleteError;
+          return res.json({ message: "Participation removed" });
+        }
+        return res.json({ message: "No participation to remove" });
+      }
+
+      if (existing) {
+        // Update existing
+        const { data, error } = await supabase
+          .from("spontaneous_presence_participants")
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq("user_id", user_id)
+          .eq("presence_id", presence_id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return res.json(data);
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from("spontaneous_presence_participants")
+          .insert([{
+            user_id,
+            presence_id,
+            status,
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return res.json(data);
+      }
+    } catch (error) {
+      console.error("Error updating participation:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get a specific spontaneous presence by ID
+  router.get("/:presence_id", async (req, res) => {
+    const { presence_id } = req.params;
+
+    try {
+      const { data, error } = await supabase
+        .from("spontaneous_presences")
+        .select(`
+          *,
+          users!spontaneous_presences_user_id_fkey(id, name, email, profile_picture)
+        `)
+        .eq("id", presence_id)
+        .eq("is_active", true)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          return res.status(404).json({ error: "Spontaneous presence not found" });
+        }
+        throw error;
+      }
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching presence:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get participants for a spontaneous presence
+  router.get("/:presence_id/participants", async (req, res) => {
+    const { presence_id } = req.params;
+
+    try {
+      const { data, error } = await supabase
+        .from("spontaneous_presence_participants")
+        .select(`
+          user_id,
+          status,
+          created_at,
+          updated_at,
+          users!spontaneous_presence_participants_user_id_fkey(id, name, email, profile_picture)
+        `)
+        .eq("presence_id", presence_id);
+
+      if (error) throw error;
+
+      res.json(data || []);
+    } catch (error) {
+      console.error("Error fetching participants:", error);
       res.status(400).json({ error: error.message });
     }
   });

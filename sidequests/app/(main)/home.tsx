@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,8 @@ import { RadiusCircle } from '../../components/RadiusCircle';
 import { useAuth } from '../../context/AuthContext';
 import { useSpontaneous } from '../../hooks/useSpontaneous';
 import SpontaneousModal from '../../components/SpontaneousModal';
+import CreateEventModal from '../../components/CreateEventModal';
+import SpontaneousEventModal from '../../components/SpontaneousEventModal';
 
 const Home = () => {
   const { user } = useAuth();
@@ -22,11 +24,13 @@ const Home = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [radiusMi, setRadiusMi] = useState(5);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const [openSpontaneousPresenceId, setOpenSpontaneousPresenceId] = useState<string | null>(null);
   const [showSpontaneousSheet, setShowSpontaneousSheet] = useState(false);
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [localIsSharing, setLocalIsSharing] = useState(false);
   const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
 
-  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence } = useSpontaneous(user?.id || null);
+  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence, myPresence } = useSpontaneous(user?.id || null);
   
   // Combine remote and local state for isSharing
   const isSharing = localIsSharing || remoteIsSharing;
@@ -56,24 +60,6 @@ const Home = () => {
 
   useEffect(() => {
     (async () => {
-      // For demo purposes, use San Francisco coordinates
-      // TODO: Replace with real location in production
-      const demoLocation = {
-        latitude: 37.7749,
-        longitude: -122.4194,
-        accuracy: 10,
-        altitude: null,
-        altitudeAccuracy: null,
-        heading: null,
-        speed: null,
-      };
-      
-      console.log('Using demo location:', demoLocation);
-      setLocation(demoLocation);
-      setLoading(false);
-      
-      // Uncomment below for real location in production:
-      /*
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.log('Permission to access location was denied');
@@ -84,57 +70,58 @@ const Home = () => {
       let loc = await Location.getCurrentPositionAsync({});
       setLocation(loc.coords);
       setLoading(false);
-      */
+      
     })();
+  }, []);
+
+  // Fetch events function that can be called manually
+  const fetchEvents = useCallback(async () => {
+    try {
+      // Check if BACKEND_API_URL is available
+      if (!BACKEND_API_URL) {
+        console.warn("⚠️ BACKEND_API_URL not configured, skipping events fetch");
+        return;
+      }
+
+      console.log("🌐 Fetching events from backend...");
+      const res = await fetch(BACKEND_API_URL + "/events");
+
+      if (!res.ok) {
+        console.error("❌ Backend responded with an error:", res.status, res.statusText);
+        return;
+      }
+
+      const rawEvents = await res.json();
+
+      const mapped = rawEvents.map((e : Event) => ({
+        id: e.id,
+        title: e.title,
+        date: e.date,
+        type: e.type,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        created_at: e.created_at,
+        user_id: e.user_id,
+        users: e.users,
+      }));
+
+      console.log(mapped)
+
+      setEvents(mapped);
+      console.log(`✅ Events loaded successfully: ${mapped.length} events`);
+    } catch (err) {
+      if (err instanceof TypeError && err.message === "Network request failed") {
+        console.warn("🚫 Backend server appears to be offline. Events will not be loaded.");
+        setEvents([]);
+      } else {
+        console.error("💥 Failed to fetch events:", err);
+        setEvents([]);
+      }
+    }
   }, []);
 
   useEffect(() => {
     let intervalId;
-
-    const fetchEvents = async () => {
-      try {
-        // Check if BACKEND_API_URL is available
-        if (!BACKEND_API_URL) {
-          console.warn("⚠️ BACKEND_API_URL not configured, skipping events fetch");
-          return;
-        }
-
-        console.log("🌐 Fetching events from backend...");
-        const res = await fetch(BACKEND_API_URL + "/events");
-
-        if (!res.ok) {
-          console.error("❌ Backend responded with an error:", res.status, res.statusText);
-          return;
-        }
-
-        const rawEvents = await res.json();
-
-        const mapped = rawEvents.map((e : Event) => ({
-          id: e.id,
-          title: e.title,
-          date: e.date,
-          type: e.type,
-          latitude: e.latitude,
-          longitude: e.longitude,
-          created_at: e.created_at,
-          user_id: e.user_id,
-          users: e.users,
-        }));
-
-        console.log(mapped)
-
-        setEvents(mapped);
-        console.log(`✅ Events loaded successfully: ${mapped.length} events`);
-      } catch (err) {
-        if (err instanceof TypeError && err.message === "Network request failed") {
-          console.warn("🚫 Backend server appears to be offline. Events will not be loaded.");
-          setEvents([]);
-        } else {
-          console.error("💥 Failed to fetch events:", err);
-          setEvents([]);
-        }
-      }
-    };
 
     // Initial fetch
     fetchEvents();
@@ -213,8 +200,8 @@ const Home = () => {
               title={presence.users?.name || 'Friend'}
               description={presence.status_text}
               onPress={() => {
-                // Could show a modal with join option
                 console.log('Tapped spontaneous presence:', presence);
+                setOpenSpontaneousPresenceId(presence.id);
               }}
             >
               {presence.users?.profile_picture ? (
@@ -270,13 +257,45 @@ const Home = () => {
         </LinearGradient>
       )}
 
+      {/* Create Event button - show only on RSVP tab */}
+      {currentTabMode === "RSVP" && (
+        <LinearGradient
+          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.createEventButtonBorder}
+        >
+          <TouchableOpacity
+            style={styles.createEventButton}
+            onPress={() => {
+              console.log('Create Event tapped');
+              setShowCreateEventModal(true);
+            }}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.createEventButtonText}>
+              Create Event
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      )}
+
       <EventBottomSheet
         events={filteredByRadius}
-        spontaneousPresences={spontaneousPresences}
+        spontaneousPresences={
+          // Include user's own presence if active, along with friends' presences
+          myPresence && myPresence.is_active && !spontaneousPresences.find(p => p.id === myPresence.id)
+            ? [...spontaneousPresences, myPresence]
+            : spontaneousPresences
+        }
         onOpen={(id) => setOpenEventId(id)}
         onPresenceTap={(presence) => {
           console.log('Tapped spontaneous presence:', presence);
-          // Could navigate to details or show more info
+          setOpenSpontaneousPresenceId(presence.id);
         }}
         onModeChange={(mode) => {
           console.log('Home component - onModeChange called with mode:', mode);
@@ -292,6 +311,7 @@ const Home = () => {
           setShowSpontaneousSheet(false);
         }}
         isActive={isSharing}
+        currentStatusText={myPresence?.status_text || ''}
         onStart={() => {
           console.log('SpontaneousModal onStart called');
           setLocalIsSharing(true);
@@ -310,6 +330,32 @@ const Home = () => {
             refreshMyPresence();
           }, 1000);
         }}
+      />
+
+      <CreateEventModal
+        isVisible={showCreateEventModal}
+        onClose={() => {
+          console.log('CreateEventModal closing');
+          setShowCreateEventModal(false);
+        }}
+        onSuccess={async () => {
+          console.log('Event created successfully, refreshing events');
+          // Add a small delay to ensure database transaction has committed
+          setTimeout(async () => {
+            console.log('Calling fetchEvents to refresh event list...');
+            await fetchEvents();
+            console.log('fetchEvents completed');
+          }, 500);
+        }}
+      />
+
+      <SpontaneousEventModal
+        visible={!!openSpontaneousPresenceId}
+        onClose={() => {
+          console.log('SpontaneousEventModal closing');
+          setOpenSpontaneousPresenceId(null);
+        }}
+        presenceId={openSpontaneousPresenceId}
       />
     </View>
   );
@@ -433,5 +479,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  createEventButtonBorder: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    borderRadius: 22,
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    zIndex: 1000,
+  },
+  createEventButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  createEventButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
