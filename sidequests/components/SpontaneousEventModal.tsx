@@ -8,6 +8,7 @@ import { SpontaneousPresence } from '../hooks/useSpontaneous';
 import { Ionicons } from '@expo/vector-icons';
 import { lightMode } from '../constants/mapStyles';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   visible: boolean;
@@ -84,6 +85,68 @@ const SpontaneousEventModal: React.FC<Props> = ({ visible, onClose, presenceId }
     }
   }, [visible, presenceId]);
 
+  // Subscribe to realtime updates for presence details and participants
+  useEffect(() => {
+    if (!visible || !presenceId) return;
+
+    // Subscribe to presence and participant changes
+    const presenceChannel = supabase
+      .channel(`presence_${presenceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spontaneous_presences',
+          filter: `id=eq.${presenceId}`,
+        },
+        async (payload) => {
+          console.log('Presence detail change:', payload);
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            // Fetch full presence data with user info
+            try {
+              const response = await fetch(`${BACKEND_API_URL}/spontaneous/${presenceId}`);
+              if (response.ok) {
+                const presenceData = await response.json();
+                setPresence(presenceData);
+              }
+            } catch (error) {
+              console.error('Error fetching updated presence:', error);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setPresence(null);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spontaneous_presence_participants',
+          filter: `presence_id=eq.${presenceId}`,
+        },
+        async (payload) => {
+          console.log('Participant change:', payload);
+          // Reload participants when they change
+          try {
+            const participantsRes = await fetch(`${BACKEND_API_URL}/spontaneous/${presenceId}/participants`);
+            if (participantsRes.ok) {
+              const part = await participantsRes.json();
+              setParticipants(part);
+            }
+          } catch (error) {
+            console.error('Error fetching updated participants:', error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [visible, presenceId]);
+
   const onStatusChanged = async () => {
     await load();
   };
@@ -126,7 +189,7 @@ const SpontaneousEventModal: React.FC<Props> = ({ visible, onClose, presenceId }
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>
                   {presence.users?.name || presence.users?.email}
-                  {presence.user_id === user?.id && " (myself)"}
+                  {presence.user_id === user?.id && " (You)"}
                 </Text>
                 <Text style={styles.statusText}>{presence.status_text}</Text>
               </View>
@@ -135,6 +198,20 @@ const SpontaneousEventModal: React.FC<Props> = ({ visible, onClose, presenceId }
             <View style={styles.timeInfo}>
               <Ionicons name="time-outline" size={16} color="#ffffff" />
               <Text style={styles.timeText}>{formatExpiresAt(presence.expires_at)}</Text>
+            </View>
+
+            <View style={styles.visibilityInfo}>
+              {presence.visibility === 'public' ? (
+                <>
+                  <Ionicons name="globe-outline" size={16} color="#4CAF50" />
+                  <Text style={styles.visibilityText}>Public - Everyone can see this</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="people-outline" size={16} color="#6a5acd" />
+                  <Text style={styles.visibilityText}>Private - Only friends can see this</Text>
+                </>
+              )}
             </View>
 
             {region && (
@@ -255,6 +332,21 @@ const styles = StyleSheet.create({
   timeText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
+  },
+  visibilityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    padding: 10,
+    borderRadius: 12,
+  },
+  visibilityText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    fontWeight: '500',
   },
   mapContainer: { 
     height: 220, 

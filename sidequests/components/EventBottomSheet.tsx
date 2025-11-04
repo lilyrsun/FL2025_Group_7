@@ -8,6 +8,7 @@ import BottomSheetHeader from "./BottomSheetHeader";
 import { BlurView } from "expo-blur";
 import { Ionicons } from '@expo/vector-icons';
 import { SpontaneousPresence } from "../hooks/useSpontaneous";
+import { useAuth } from "../context/AuthContext";
 
 type Props = {
   events: Event[];
@@ -26,9 +27,10 @@ function CustomBackground({ style }: BottomSheetBackgroundProps) {
 }
 
 const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], onOpen, onPresenceTap, onModeChange }) => {
+  const { user } = useAuth();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["10%", "25%", "50%", "90%"], []);
-  const [mode, setMode] = useState<"Spontaneous" | "RSVP">("RSVP");
+  const [mode, setMode] = useState<"Spontaneous" | "RSVP">("Spontaneous");
 
   const filteredEvents = events.filter((e) => e.type === mode);
 
@@ -71,11 +73,20 @@ const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], 
     >
       <View style={styles.row}>
         <Image
-          source={{ uri: item.users?.profile_picture || 'https://via.placeholder.com/40' }}
+          source={{ uri: item.user_id === user?.id ? user?.user_metadata.avatar_url : item.users?.profile_picture }}
           style={styles.avatar}
         />
         <View style={{ flex: 1 }}>
-          <Text style={styles.eventTitle}>{item.users?.name || 'Friend'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.eventTitle}>
+              {item.user_id === user?.id ? `${user?.user_metadata.name} (You)` : (item.users?.name || 'Friend')}
+            </Text>
+            {item.visibility === 'public' ? (
+              <Ionicons name="globe-outline" size={14} color="#4CAF50" />
+            ) : (
+              <Ionicons name="people-outline" size={14} color="#6a5acd" />
+            )}
+          </View>
           <Text style={styles.eventDate}>{item.status_text}</Text>
           <Text style={styles.liveIndicator}>
             <Ionicons name="radio-button-on" size={12} color="#4CAF50" /> Live
@@ -116,8 +127,8 @@ const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], 
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="calendar-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No {mode.toLowerCase()} events</Text>
-              <Text style={styles.emptySubtext}>Create an event to get started!</Text>
+              <Text style={styles.emptyText}>No {mode} events</Text>
+              <Text style={styles.emptySubtext}>Events you and your friends create will pop up here</Text>
             </View>
           }
         />

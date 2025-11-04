@@ -21,10 +21,15 @@ export default function spontaneousRoutes(supabase) {
 
   // Start or update a spontaneous presence
   router.post("/start", async (req, res) => {
-    const { user_id, status_text, latitude, longitude, accuracy } = req.body;
+    const { user_id, status_text, latitude, longitude, accuracy, visibility = "friends" } = req.body;
 
     if (!user_id || !latitude || !longitude) {
       return res.status(400).json({ error: "user_id, latitude, and longitude are required" });
+    }
+
+    // Validate visibility value
+    if (visibility !== "friends" && visibility !== "public") {
+      return res.status(400).json({ error: "visibility must be either 'friends' or 'public'" });
     }
 
     try {
@@ -51,6 +56,7 @@ export default function spontaneousRoutes(supabase) {
             accuracy: accuracy || null,
             last_seen: new Date().toISOString(),
             expires_at,
+            visibility: visibility || existing.visibility,
           })
           .eq("user_id", user_id)
           .eq("is_active", true)
@@ -72,7 +78,7 @@ export default function spontaneousRoutes(supabase) {
             is_active: true,
             last_seen: new Date().toISOString(),
             expires_at,
-            visibility: "friends", // Only friends can see
+            visibility: visibility || "friends",
           }])
           .select()
           .single();
@@ -163,7 +169,7 @@ export default function spontaneousRoutes(supabase) {
     }
   });
 
-  // Get nearby spontaneous presences (only friends)
+  // Get nearby spontaneous presences (friends with visibility='friends' + all with visibility='public')
   router.get("/nearby", async (req, res) => {
     const { user_id, latitude, longitude, radius_miles = 5 } = req.query;
 
@@ -188,24 +194,51 @@ export default function spontaneousRoutes(supabase) {
       const friendIds = friendships
         ?.map(f => f.user_id_1 === user_id ? f.user_id_2 : f.user_id_1) || [];
 
-      if (friendIds.length === 0) {
-        return res.json([]);
+      // Get presences from two sources:
+      // 1. Friends with visibility='friends'
+      // 2. Anyone with visibility='public'
+      let friendPresences = [];
+      if (friendIds.length > 0) {
+        const { data: friendPresencesData, error: friendPresenceError } = await supabase
+          .from("spontaneous_presences")
+          .select(`
+            *,
+            users!spontaneous_presences_user_id_fkey(id, name, email, profile_picture)
+          `)
+          .in("user_id", friendIds)
+          .eq("is_active", true)
+          .eq("visibility", "friends");
+
+        if (friendPresenceError) {
+          console.error("Error fetching friend presences:", friendPresenceError);
+        } else {
+          friendPresences = friendPresencesData || [];
+        }
       }
 
-      // Get all active presences from friends
-      const { data: allPresences, error: presenceError } = await supabase
+      // Get public presences (from anyone, not just friends, but exclude the requesting user's own presence)
+      const { data: publicPresences, error: publicPresenceError } = await supabase
         .from("spontaneous_presences")
         .select(`
           *,
           users!spontaneous_presences_user_id_fkey(id, name, email, profile_picture)
         `)
-        .in("user_id", friendIds)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("visibility", "public")
+        .neq("user_id", user_id); // Exclude the requesting user's own presence
 
-      if (presenceError) {
-        console.error("Error fetching presences:", presenceError);
-        return res.status(500).json({ error: "Failed to fetch presences" });
+      if (publicPresenceError) {
+        console.error("Error fetching public presences:", publicPresenceError);
       }
+
+      // Combine both lists, avoiding duplicates
+      const allPresences = [...friendPresences];
+      const publicPresencesList = publicPresences || [];
+      publicPresencesList.forEach(p => {
+        if (!allPresences.find(fp => fp.id === p.id)) {
+          allPresences.push(p);
+        }
+      });
 
       // Filter by geographic distance
       const R = 3958.8; // Earth radius in miles
