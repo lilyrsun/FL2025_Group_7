@@ -30,7 +30,42 @@ const Home = () => {
   const [localIsSharing, setLocalIsSharing] = useState(false);
   const [currentTabMode, setCurrentTabMode] = useState<"Spontaneous" | "RSVP">("RSVP");
 
-  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence, myPresence } = useSpontaneous(user?.id || null);
+  // Handle realtime event changes
+  const handleEventChange = useCallback((event: Event, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => {
+    console.log('Realtime event change:', eventType, event);
+    
+    setEvents((prevEvents) => {
+      if (eventType === 'INSERT') {
+        // Only add if it's a future event and not already in the list
+        const now = new Date().toISOString();
+        if (event.date > now && !prevEvents.find(e => e.id === event.id)) {
+          return [...prevEvents, event];
+        }
+        return prevEvents;
+      } else if (eventType === 'UPDATE') {
+        // Update existing event or add if new
+        const existingIndex = prevEvents.findIndex(e => e.id === event.id);
+        const now = new Date().toISOString();
+        // Only include future events
+        if (event.date > now) {
+          if (existingIndex >= 0) {
+            return prevEvents.map(e => e.id === event.id ? event : e);
+          } else {
+            return [...prevEvents, event];
+          }
+        } else {
+          // Remove if event is now in the past
+          return prevEvents.filter(e => e.id !== event.id);
+        }
+      } else if (eventType === 'DELETE') {
+        // Remove deleted event
+        return prevEvents.filter(e => e.id !== event.id);
+      }
+      return prevEvents;
+    });
+  }, []);
+
+  const { presences: spontaneousPresences, fetchNearbyPresences, isSharing: remoteIsSharing, refreshMyPresence, myPresence } = useSpontaneous(user?.id || null, handleEventChange);
   
   // Combine remote and local state for isSharing
   const isSharing = localIsSharing || remoteIsSharing;
@@ -121,17 +156,9 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    let intervalId;
-
-    // Initial fetch
+    // Initial fetch only - realtime updates handle subsequent changes
     fetchEvents();
-
-    // Poll every 10 seconds
-    intervalId = setInterval(fetchEvents, 10000);
-
-    // Cleanup on unmount
-    return () => clearInterval(intervalId);
-  }, [BACKEND_API_URL]);
+  }, [BACKEND_API_URL, fetchEvents]);
 
   // Fetch nearby spontaneous presences when location changes
   useEffect(() => {
@@ -197,7 +224,7 @@ const Home = () => {
                 latitude: presence.latitude,
                 longitude: presence.longitude,
               }}
-              title={presence.users?.name || 'Friend'}
+              title={presence.user_id === user?.id ? 'You' : (presence.users?.name || 'Friend')}
               description={presence.status_text}
               onPress={() => {
                 console.log('Tapped spontaneous presence:', presence);

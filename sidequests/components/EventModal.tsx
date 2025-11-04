@@ -8,6 +8,7 @@ import type { Event } from '../types/event';
 import { Ionicons } from '@expo/vector-icons';
 import { lightMode } from '../constants/mapStyles';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   visible: boolean;
@@ -17,7 +18,7 @@ type Props = {
 
 type Attendee = {
   user_id: string;
-  status: "yes" | "no";
+  status?: "yes" | "no" | null;
   users: { name: string; email: string; id: string; profile_picture?: string };
 };
 
@@ -35,7 +36,8 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
 
   function isUserInAttendees() {
     const attendee = attendees.find((a) => a.user_id === user?.id);
-    return attendee?.status ?? "none";
+    if (!attendee || !attendee.status) return "none";
+    return attendee.status as "yes" | "no" | "none";
   }
 
   console.log(isUserInAttendees())
@@ -61,8 +63,15 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
       const e = await eventRes.json();
       if (eventRes.ok) setEvent(e); else setEvent(null);
       const r = await rsvpRes.json();
-      if (rsvpRes.ok) setAttendees(r); else setAttendees([]);
+      console.log("EventModal - Loaded RSVPs:", r);
+      if (rsvpRes.ok) {
+        setAttendees(r);
+        console.log("EventModal - Current user RSVP status:", r.find((a: Attendee) => a.user_id === user?.id)?.status);
+      } else {
+        setAttendees([]);
+      }
     } catch (e) {
+      console.error("EventModal - Error loading:", e);
       setEvent(null);
       setAttendees([]);
     } finally {
@@ -76,7 +85,72 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
     }
   }, [visible, eventId]);
 
+  // Subscribe to realtime updates for event details and RSVPs
+  useEffect(() => {
+    if (!visible || !eventId) return;
+
+    // Subscribe to event changes
+    const eventChannel = supabase
+      .channel(`event_${eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${eventId}`,
+        },
+        async (payload) => {
+          console.log('Event detail change:', payload);
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            // Fetch full event data with user info
+            try {
+              const response = await fetch(`${BACKEND_API_URL}/events/${eventId}`);
+              if (response.ok) {
+                const eventData = await response.json();
+                setEvent(eventData);
+              }
+            } catch (error) {
+              console.error('Error fetching updated event:', error);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setEvent(null);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_rsvps',
+          filter: `event_id=eq.${eventId}`,
+        },
+        async (payload) => {
+          console.log('RSVP change:', payload);
+          // Reload RSVPs when they change
+          try {
+            const rsvpRes = await fetch(`${BACKEND_API_URL}/rsvps/${eventId}`);
+            if (rsvpRes.ok) {
+              const r = await rsvpRes.json();
+              setAttendees(r);
+            }
+          } catch (error) {
+            console.error('Error fetching updated RSVPs:', error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(eventChannel);
+    };
+  }, [visible, eventId]);
+
   const onRsvpChanged = async () => {
+    console.log("EventModal - onRsvpChanged called, reloading...");
+    // Add a small delay to ensure backend has processed the update
+    await new Promise(resolve => setTimeout(resolve, 100));
     await load();
   };
 
