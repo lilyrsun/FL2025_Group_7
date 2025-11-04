@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BACKEND_API_URL } from "@env";
@@ -17,6 +17,11 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChang
   const [status, setStatus] = useState<RSVPStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
 
+  // Update status when initialStatus changes
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
+
   const updateRSVP = async (newStatus: RSVPStatus) => {
     if (!user?.id) return;
     if (loading) return;
@@ -25,6 +30,9 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChang
     try {
       // If user tapped the same status again → remove RSVP
       const effectiveStatus = status === newStatus ? "none" : newStatus;
+      const statusToSend = effectiveStatus === "none" ? null : effectiveStatus;
+
+      console.log(`RSVP update: ${status} -> ${newStatus} (effective: ${effectiveStatus}, sending: ${statusToSend})`);
 
       const res = await fetch(`${BACKEND_API_URL}/rsvps`, {
         method: "POST",
@@ -32,22 +40,33 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChang
         body: JSON.stringify({
           user_id: user.id,
           event_id: eventId,
-          status: effectiveStatus === "none" ? null : effectiveStatus,
+          status: statusToSend,
         }),
       });
 
+      const responseData = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update RSVP");
+        console.error("RSVP update failed:", responseData);
+        throw new Error(responseData.error || "Failed to update RSVP");
       }
 
+      console.log("RSVP update successful:", responseData);
+      
+      // Update local state immediately for better UX
       setStatus(effectiveStatus);
-      onChanged?.(effectiveStatus);
+      
+      // Call onChanged callback to trigger reload in parent
+      // The parent will reload and update initialStatus, which will sync via useEffect
+      if (onChanged) {
+        onChanged(effectiveStatus);
+      }
 
       if (effectiveStatus === "yes") Alert.alert("RSVP", "You're in! 🎉");
       else if (effectiveStatus === "no") Alert.alert("RSVP", "You declined this event.");
       else Alert.alert("RSVP", "RSVP cleared.");
     } catch (e: any) {
+      console.error("RSVP update error:", e);
       Alert.alert("Error", e.message || "Failed to update RSVP");
     } finally {
       setLoading(false);
@@ -61,7 +80,7 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChang
           colors={status === "yes" ? ["#4CAF50", "#2ecc71"] : ["#555", "#444"]}
           style={styles.glassBtn}
         >
-          {loading && status === "yes" ? (
+          {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.text}>👍 Yes</Text>
@@ -74,7 +93,7 @@ const RSVPButtons: React.FC<Props> = ({ eventId, initialStatus = "none", onChang
           colors={status === "no" ? ["#e74c3c", "#c0392b"] : ["#555", "#444"]}
           style={styles.glassBtn}
         >
-          {loading && status === "no" ? (
+          {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.text}>👎 No</Text>
