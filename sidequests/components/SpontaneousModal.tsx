@@ -25,6 +25,7 @@ const SpontaneousModal: React.FC<Props> = ({
 }) => {
   const [statusText, setStatusText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [visibility, setVisibility] = useState<'friends' | 'public'>('friends');
   const { user } = useAuth();
 
   const handleStart = async () => {
@@ -49,7 +50,7 @@ const SpontaneousModal: React.FC<Props> = ({
 
       const latitude = location.coords.latitude;
       const longitude = location.coords.longitude;
-      const accuracy = location.coords.accuracy || 10;
+      const accuracy = location.coords.accuracy ? Math.round(location.coords.accuracy) : 10;
 
       console.log('Using real coordinates:', { latitude, longitude, accuracy });
 
@@ -62,6 +63,7 @@ const SpontaneousModal: React.FC<Props> = ({
           latitude,
           longitude,
           accuracy,
+          visibility,
         }),
       });
 
@@ -156,84 +158,126 @@ const SpontaneousModal: React.FC<Props> = ({
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
           >
-                {!isActive ? (
-                  <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Share Your Location</Text>
-                    <Text style={styles.subtitleLight}>
-                      Share your location with friends and let them know you're available!
+            {!isActive ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Share Your Location</Text>
+                <Text style={styles.subtitleLight}>
+                  Share your location with friends and let them know you're available!
+                </Text>
+
+                <Text style={styles.labelLight}>Status (optional)</Text>
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                  style={styles.inputGradient}
+                >
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g., Down for coffee!"
+                    placeholderTextColor="rgba(106, 90, 205, 0.6)"
+                    value={statusText}
+                    onChangeText={setStatusText}
+                    maxLength={100}
+                    multiline
+                  />
+                </LinearGradient>
+
+                <Text style={styles.labelLight}>Visibility</Text>
+                <View style={styles.visibilityContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.visibilityOption,
+                      visibility === 'friends' && styles.visibilityOptionActive
+                    ]}
+                    onPress={() => setVisibility('friends')}
+                  >
+                    <Ionicons 
+                      name={visibility === 'friends' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={20} 
+                      color={visibility === 'friends' ? '#fff' : 'rgba(255,255,255,0.6)'} 
+                    />
+                    <Text style={[
+                      styles.visibilityText,
+                      visibility === 'friends' && styles.visibilityTextActive
+                    ]}>
+                      Friends Only
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.visibilityOption,
+                      visibility === 'public' && styles.visibilityOptionActive
+                    ]}
+                    onPress={() => setVisibility('public')}
+                  >
+                    <Ionicons 
+                      name={visibility === 'public' ? 'radio-button-on' : 'radio-button-off'} 
+                      size={20} 
+                      color={visibility === 'public' ? '#fff' : 'rgba(255,255,255,0.6)'} 
+                    />
+                    <Text style={[
+                      styles.visibilityText,
+                      visibility === 'public' && styles.visibilityTextActive
+                    ]}>
+                      Everyone
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-                    <Text style={styles.labelLight}>Status (optional)</Text>
-                    <LinearGradient
-                      colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
-                      style={styles.inputGradient}
-                    >
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g., Down for coffee!"
-                        placeholderTextColor="rgba(106, 90, 205, 0.6)"
-                        value={statusText}
-                        onChangeText={setStatusText}
-                        maxLength={100}
-                        multiline
-                      />
-                    </LinearGradient>
+                <View style={styles.infoBoxLight}>
+                  <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
+                  <Text style={styles.infoTextLight}>
+                    Your location will be shared for 10 minutes and visible to {visibility === 'friends' ? 'friends only' : 'everyone'}.
+                  </Text>
+                </View>
 
-                    <View style={styles.infoBoxLight}>
-                      <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
-                      <Text style={styles.infoTextLight}>
-                        Your location will be shared for 10 minutes and only visible to friends.
-                      </Text>
-                    </View>
+                <TouchableOpacity onPress={handleStart} disabled={loading}>
+                  <LinearGradient
+                    colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.buttonSurface, styles.startSurface]}
+                  >
+                    <Ionicons name="radio-button-on" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Start Sharing</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Location Sharing Active</Text>
+                <View style={styles.activeStatus}>
+                  <Ionicons name="radio-button-on" size={32} color="#B7F5C8" />
+                  <Text style={styles.activeText}>Location is being shared</Text>
+                </View>
 
-                    <TouchableOpacity onPress={handleStart} disabled={loading}>
-                      <LinearGradient
-                        colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.buttonSurface, styles.startSurface]}
-                      >
-                        <Ionicons name="radio-button-on" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Start Sharing</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Location Sharing Active</Text>
-                    <View style={styles.activeStatus}>
-                      <Ionicons name="radio-button-on" size={32} color="#B7F5C8" />
-                      <Text style={styles.activeText}>Location is being shared</Text>
-                    </View>
-
-                    {currentStatusText && (
-                      <View style={styles.infoBoxLight}>
-                        <Ionicons name="chatbubble-outline" size={20} color="#ffffff" />
-                        <Text style={styles.infoTextLight}>
-                          Status: {currentStatusText}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.infoBoxLight}>
-                      <Text style={styles.infoTextLight}>
-                        Your friends can see your live location and join you.
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity onPress={handleStop} disabled={loading}>
-                      <LinearGradient
-                        colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[styles.buttonSurface, styles.stopSurface]}
-                      >
-                        <Ionicons name="stop-circle" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Stop Sharing</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                {currentStatusText && (
+                  <View style={styles.infoBoxLight}>
+                    <Ionicons name="chatbubble-outline" size={20} color="#ffffff" />
+                    <Text style={styles.infoTextLight}>
+                      Status: {currentStatusText}
+                    </Text>
                   </View>
                 )}
+
+                <View style={styles.infoBoxLight}>
+                  <Text style={styles.infoTextLight}>
+                    Your friends can see your live location and join you.
+                  </Text>
+                </View>
+
+                <TouchableOpacity onPress={handleStop} disabled={loading}>
+                  <LinearGradient
+                    colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.buttonSurface, styles.stopSurface]}
+                  >
+                    <Ionicons name="stop-circle" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Stop Sharing</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
           </KeyboardAvoidingView>
         </ScrollView>
       </LinearGradient>
@@ -305,7 +349,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    minHeight: 50,
     color: '#2d2d2d',
     backgroundColor: 'transparent',
   },
@@ -322,6 +365,35 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginLeft: 10,
     flex: 1,
+  },
+  visibilityContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  visibilityOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  visibilityOptionActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  visibilityText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '500',
+  },
+  visibilityTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
   buttonSurface: {
     flexDirection: 'row',
