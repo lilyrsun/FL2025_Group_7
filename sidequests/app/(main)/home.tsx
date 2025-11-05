@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   },
   spontaneousButtonBorder: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 90, // 60px (tab bar) + 20px (padding) + 10px (extra space)
     right: 20,
     borderRadius: 22,
     padding: 2,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   },
   createEventButtonBorder: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 90, // 60px (tab bar) + 20px (padding) + 10px (extra space)
     right: 20,
     borderRadius: 22,
     padding: 2,
