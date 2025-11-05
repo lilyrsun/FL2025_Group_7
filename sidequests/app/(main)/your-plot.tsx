@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, TextInput, Modal, FlatList, Alert } from 'react-native'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,11 @@ import { BACKEND_API_URL } from '@env';
 import { Ionicons } from '@expo/vector-icons';
 import type { Event } from '../../types/event';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import PickLocation from '../../components/PickLocation';
+import EventModal from '../../components/EventModal';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { lightMode } from '../../constants/mapStyles';
 
 interface WishlistItem {
   id: string;
@@ -39,6 +43,7 @@ const YourPlot = () => {
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top + 24;
 
+  const [activeTab, setActiveTab] = useState<'wishlist' | 'upcoming' | 'diary'>('upcoming');
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [upcomingRsvps, setUpcomingRsvps] = useState<Event[]>([]);
   const [diaryEvents, setDiaryEvents] = useState<DiaryEvent[]>([]);
@@ -50,12 +55,22 @@ const YourPlot = () => {
   const [newWishlistNote, setNewWishlistNote] = useState('');
   const [newWishlistLocation, setNewWishlistLocation] = useState<{ address: string; lat: number; lng: number } | null>(null);
   const [wishlistQuery, setWishlistQuery] = useState('');
+  const [selectedWishlistItem, setSelectedWishlistItem] = useState<WishlistItem | null>(null);
+  const [showWishlistModal, setShowWishlistModal] = useState(false);
   
   // Diary states
   const [selectedDiaryEvent, setSelectedDiaryEvent] = useState<DiaryEvent | null>(null);
   const [diaryReflection, setDiaryReflection] = useState('');
   const [diaryPhotos, setDiaryPhotos] = useState<string[]>([]);
   const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Address states for reverse geocoding
+  const [diaryEventAddress, setDiaryEventAddress] = useState<string | null>(null);
+  const [wishlistItemAddress, setWishlistItemAddress] = useState<string | null>(null);
+  
+  // Event modal state
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -151,64 +166,144 @@ const YourPlot = () => {
   };
 
 
-  const openDiaryEntry = (event: DiaryEvent) => {
+  const reverseGeocode = async (latitude: number, longitude: number): Promise<string | null> => {
+    try {
+      const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (addresses && addresses.length > 0) {
+        const addr = addresses[0];
+        const parts = [];
+        if (addr.street) parts.push(addr.street);
+        if (addr.streetNumber) parts.push(addr.streetNumber);
+        if (parts.length === 0 && addr.name) parts.push(addr.name);
+        if (addr.city) parts.push(addr.city);
+        if (addr.region) parts.push(addr.region);
+        if (addr.postalCode) parts.push(addr.postalCode);
+        return parts.length > 0 ? parts.join(', ') : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+      return null;
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return null;
+    }
+  };
+
+  const openDiaryEntry = async (event: DiaryEvent) => {
     setSelectedDiaryEvent(event);
     setDiaryReflection(event.diary?.reflection || '');
     setDiaryPhotos(event.diary?.photo_urls || []);
     setShowDiaryModal(true);
+    
+    // Reverse geocode the location
+    if (event.latitude !== undefined && event.longitude !== undefined) {
+      const address = await reverseGeocode(event.latitude, event.longitude);
+      setDiaryEventAddress(address);
+    }
   };
 
-  const handlePickImage = async () => {
+  const handlePickImage = async (source: 'library' | 'camera' = 'library') => {
+    if (!selectedDiaryEvent) return;
+
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant camera roll permissions');
+      // Request permissions
+      let permissionResult;
+      if (source === 'camera') {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (permissionResult.status !== 'granted') {
+        Alert.alert(
+          'Permission needed',
+          `Please grant ${source === 'camera' ? 'camera' : 'photo library'} permissions`
+        );
         return;
       }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
+      // Launch image picker or camera
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+          });
 
       if (!result.canceled && result.assets[0] && selectedDiaryEvent) {
-        // Upload image using FormData (React Native format)
-        const formData = new FormData();
-        formData.append('file', {
-          uri: result.assets[0].uri,
-          type: 'image/jpeg',
-          name: 'photo.jpg',
-        } as any);
-
-        const uploadResponse = await fetch(
-          `${BACKEND_API_URL}/upload/diary-photo/${selectedDiaryEvent.id}`,
-          {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-
-        if (uploadResponse.ok) {
-          const { url } = await uploadResponse.json();
-          const updatedPhotos = [...diaryPhotos, url];
-          setDiaryPhotos(updatedPhotos);
+        setUploadingPhoto(true);
+        
+        try {
+          // Upload image using FormData (React Native format)
+          const formData = new FormData();
+          const asset = result.assets[0];
           
-          // Save to diary entry
-          await saveDiaryEntry(updatedPhotos);
-        } else {
-          const errorText = await uploadResponse.text();
-          console.error('Upload error:', errorText);
+          // Get file extension from URI or use jpg as default
+          const uriParts = asset.uri.split('.');
+          const fileType = uriParts[uriParts.length - 1] || 'jpg';
+          
+          formData.append('file', {
+            uri: asset.uri,
+            type: `image/${fileType}`,
+            name: `photo.${fileType}`,
+          } as any);
+
+          const uploadResponse = await fetch(
+            `${BACKEND_API_URL}/upload/diary-photo/${selectedDiaryEvent.id}`,
+            {
+              method: 'POST',
+              body: formData,
+              // Don't set Content-Type header - let fetch set it with boundary
+            }
+          );
+
+          if (uploadResponse.ok) {
+            const { url } = await uploadResponse.json();
+            const updatedPhotos = [...diaryPhotos, url];
+            setDiaryPhotos(updatedPhotos);
+            
+            // Save to diary entry
+            await saveDiaryEntry(updatedPhotos);
+            Alert.alert('Success', 'Photo uploaded successfully');
+          } else {
+            const errorText = await uploadResponse.text();
+            console.error('Upload error:', errorText);
+            Alert.alert('Error', 'Failed to upload image');
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError);
           Alert.alert('Error', 'Failed to upload image');
+        } finally {
+          setUploadingPhoto(false);
         }
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image');
+      setUploadingPhoto(false);
     }
+  };
+
+  const handleDeletePhoto = async (photoUrl: string) => {
+    Alert.alert(
+      'Delete Photo',
+      'Are you sure you want to delete this photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const updatedPhotos = diaryPhotos.filter(url => url !== photoUrl);
+            setDiaryPhotos(updatedPhotos);
+            await saveDiaryEntry(updatedPhotos);
+          },
+        },
+      ]
+    );
   };
 
   const saveDiaryEntry = async (photos?: string[]) => {
@@ -251,6 +346,26 @@ const YourPlot = () => {
     return [];
   };
 
+  const diaryEventRegion = useMemo(() => {
+    if (!selectedDiaryEvent) return undefined;
+    return {
+      latitude: selectedDiaryEvent.latitude,
+      longitude: selectedDiaryEvent.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+  }, [selectedDiaryEvent]);
+
+  const wishlistItemRegion = useMemo(() => {
+    if (!selectedWishlistItem) return undefined;
+    return {
+      latitude: selectedWishlistItem.latitude,
+      longitude: selectedWishlistItem.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+  }, [selectedWishlistItem]);
+
   if (loading) {
     return (
       <LinearGradient
@@ -268,123 +383,180 @@ const YourPlot = () => {
 
   return (
     <LinearGradient
-      colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.gradientContainer}
-    >
+        colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: statusBarHeight }]}>
+        <Text style={styles.headerTitle}>📖 Your Plot</Text>
+      </View>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}
+          onPress={() => setActiveTab('upcoming')}
+        >
+          <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
+            Upcoming
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'wishlist' && styles.activeTab]}
+          onPress={() => setActiveTab('wishlist')}
+        >
+          <Text style={[styles.tabText, activeTab === 'wishlist' && styles.activeTabText]}>
+            Wishlist
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'diary' && styles.activeTab]}
+          onPress={() => setActiveTab('diary')}
+        >
+          <Text style={[styles.tabText, activeTab === 'diary' && styles.activeTabText]}>
+            Diary
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
       <ScrollView 
-        style={styles.container} 
-        contentContainerStyle={[styles.scrollContent, { paddingTop: statusBarHeight }]}
+        style={styles.content} 
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.heading}>📖 Your Plot</Text>
-          <Text style={styles.subheading}>Your personal adventure journal</Text>
-        </View>
-
-        {/* Wishlist Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.inputLabel}>Wishlist</Text>
-            <TouchableOpacity onPress={() => setShowAddWishlist(true)}>
-              <Ionicons name="add-circle" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.infoGradient}
-          >
-            {wishlist.length === 0 ? (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>No saved locations yet</Text>
-              </View>
-            ) : (
-              wishlist.map((item) => (
-                <View key={item.id} style={styles.infoItem}>
-                  <View style={styles.wishlistItem}>
-                    <View style={styles.wishlistContent}>
-                      <Text style={styles.wishlistName}>{item.name}</Text>
-                      {item.note && <Text style={styles.wishlistNote}>{item.note}</Text>}
-                    </View>
-                    <TouchableOpacity onPress={() => handleDeleteWishlist(item.id)}>
-                      <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.7)" />
-                    </TouchableOpacity>
-                  </View>
+        {activeTab === 'wishlist' && (
+          <View style={styles.tabContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.inputLabel}>Wishlist</Text>
+              <TouchableOpacity 
+                style={styles.addButton} 
+                onPress={() => setShowAddWishlist(true)}
+              >
+                <Ionicons name="add" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.infoGradient}
+            >
+              {wishlist.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="heart-outline" size={64} color="rgba(255,255,255,0.5)" />
+                  <Text style={styles.emptyText}>No saved locations yet</Text>
+                  <Text style={styles.emptySubtext}>Add locations to your wishlist to visit later!</Text>
                 </View>
-              ))
-            )}
-          </LinearGradient>
-        </View>
-
-        {/* Upcoming Events Section */}
-        <View style={styles.section}>
-          <Text style={styles.inputLabel}>Upcoming Events</Text>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.infoGradient}
-          >
-            {upcomingRsvps.length === 0 ? (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>No upcoming events</Text>
-              </View>
-            ) : (
-              upcomingRsvps.map((evt) => (
-                <View key={evt.id} style={styles.infoItem}>
-                  <View style={styles.eventItem}>
-                    <Text style={styles.eventTitle}>{evt.title}</Text>
-                    <Text style={styles.eventDate}>
-                      {evt.date ? new Date(evt.date).toLocaleString() : evt.type}
-                    </Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </LinearGradient>
-        </View>
-
-        {/* Diary Section */}
-        <View style={styles.section}>
-          <Text style={styles.inputLabel}>Diary</Text>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.infoGradient}
-          >
-            {diaryEvents.length === 0 ? (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>No past events yet</Text>
-              </View>
-            ) : (
-              diaryEvents.map((evt) => (
-                <TouchableOpacity
-                  key={evt.id}
-                  style={styles.infoItem}
-                  onPress={() => openDiaryEntry(evt)}
-                >
-                  <View style={styles.eventItem}>
-                    <Text style={styles.eventTitle}>{evt.title}</Text>
-                    <Text style={styles.eventDate}>
-                      {evt.date ? new Date(evt.date).toLocaleDateString() : 'Past event'}
-                    </Text>
-                    {evt.diary && (
-                      <View style={styles.diaryIndicator}>
-                        <Ionicons name="checkmark-circle" size={16} color="rgba(255,255,255,0.7)" />
-                        <Text style={styles.diaryIndicatorText}>Has entry</Text>
+              ) : (
+                wishlist.map((item) => (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={styles.infoItem}
+                    onPress={async () => {
+                      setSelectedWishlistItem(item);
+                      setShowWishlistModal(true);
+                      // Reverse geocode the location
+                      if (item.latitude !== undefined && item.longitude !== undefined) {
+                        const address = await reverseGeocode(item.latitude, item.longitude);
+                        setWishlistItemAddress(address);
+                      }
+                    }}
+                  >
+                    <View style={styles.wishlistItem}>
+                      <View style={styles.wishlistContent}>
+                        <Text style={styles.wishlistName}>{item.name}</Text>
+                        {item.note && <Text style={styles.wishlistNote}>{item.note}</Text>}
                       </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </LinearGradient>
-        </View>
+                      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </LinearGradient>
+          </View>
+        )}
+
+        {activeTab === 'upcoming' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.inputLabel}>Upcoming Events</Text>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.infoGradient}
+            >
+              {upcomingRsvps.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="calendar-outline" size={64} color="rgba(255,255,255,0.5)" />
+                  <Text style={styles.emptyText}>No upcoming events</Text>
+                  <Text style={styles.emptySubtext}>Events you RSVP to will appear here</Text>
+                </View>
+              ) : (
+                upcomingRsvps.map((evt) => (
+                  <TouchableOpacity
+                    key={evt.id}
+                    style={styles.infoItem}
+                    onPress={() => setOpenEventId(evt.id)}
+                  >
+                    <View style={styles.eventItem}>
+                      <Text style={styles.eventTitle}>{evt.title}</Text>
+                      <Text style={styles.eventDate}>
+                        {evt.date ? new Date(evt.date).toLocaleString() : evt.type}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+                  </TouchableOpacity>
+                ))
+              )}
+            </LinearGradient>
+          </View>
+        )}
+
+        {activeTab === 'diary' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.inputLabel}>Diary</Text>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.infoGradient}
+            >
+              {diaryEvents.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="book-outline" size={64} color="rgba(255,255,255,0.5)" />
+                  <Text style={styles.emptyText}>No past events yet</Text>
+                  <Text style={styles.emptySubtext}>After events, you can add diary entries here</Text>
+                </View>
+              ) : (
+                diaryEvents.map((evt) => (
+                  <TouchableOpacity
+                    key={evt.id}
+                    style={styles.infoItem}
+                    onPress={() => openDiaryEntry(evt)}
+                  >
+                    <View style={styles.eventItem}>
+                      <Text style={styles.eventTitle}>{evt.title}</Text>
+                      <Text style={styles.eventDate}>
+                        {evt.date ? new Date(evt.date).toLocaleDateString() : 'Past event'}
+                      </Text>
+                      {evt.diary && (
+                        <View style={styles.diaryIndicator}>
+                          <Ionicons name="checkmark-circle" size={16} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.diaryIndicatorText}>Has entry</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+                  </TouchableOpacity>
+                ))
+              )}
+            </LinearGradient>
+          </View>
+        )}
       </ScrollView>
 
       {/* Add Wishlist Modal */}
@@ -463,7 +635,10 @@ const YourPlot = () => {
       </Modal>
 
       {/* Diary Entry Modal */}
-      <Modal visible={showDiaryModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDiaryModal(false)}>
+      <Modal visible={showDiaryModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => {
+        setShowDiaryModal(false);
+        setDiaryEventAddress(null);
+      }}>
         <LinearGradient
           colors={['#6a5acd', '#00c6ff', '#9b59b6']}
           start={{ x: 0, y: 0 }}
@@ -493,7 +668,39 @@ const YourPlot = () => {
                       Organized by: {selectedDiaryEvent.users.name}
                     </Text>
                   )}
+                  {selectedDiaryEvent.latitude !== undefined && selectedDiaryEvent.longitude !== undefined && (
+                    <View style={styles.diaryLocationInfo}>
+                      <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.9)" />
+                      <Text style={styles.diaryLocationText}>
+                        {diaryEventAddress || `Lat: ${selectedDiaryEvent.latitude.toFixed(6)}, Long: ${selectedDiaryEvent.longitude.toFixed(6)}`}
+                      </Text>
+                    </View>
+                  )}
                 </View>
+                
+                {diaryEventRegion && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.modalInputLabel}>Location</Text>
+                    <View style={styles.mapContainer}>
+                      <MapView
+                        style={styles.map}
+                        initialRegion={diaryEventRegion}
+                        provider={PROVIDER_GOOGLE}
+                        customMapStyle={lightMode}
+                        scrollEnabled={true}
+                        zoomEnabled={true}
+                      >
+                        <Marker 
+                          coordinate={{ 
+                            latitude: selectedDiaryEvent.latitude, 
+                            longitude: selectedDiaryEvent.longitude 
+                          }} 
+                          title={selectedDiaryEvent.title} 
+                        />
+                      </MapView>
+                    </View>
+                  </View>
+                )}
                 
                 <View style={styles.inputGroup}>
                   <Text style={styles.modalInputLabel}>Reflection</Text>
@@ -515,27 +722,59 @@ const YourPlot = () => {
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.modalInputLabel}>Photos</Text>
-                  <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
-                    <LinearGradient
-                      colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.photoButtonGradient}
+                  <View style={styles.photoButtonContainer}>
+                    <TouchableOpacity 
+                      style={styles.photoButton} 
+                      onPress={() => handlePickImage('library')}
+                      disabled={uploadingPhoto}
                     >
-                      <Ionicons name="camera" size={24} color="#ffffff" />
-                      <Text style={styles.photoButtonText}>Add Photo</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <LinearGradient
+                        colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.photoButtonGradient}
+                      >
+                        <Ionicons name="image-outline" size={24} color="#ffffff" />
+                        <Text style={styles.photoButtonText}>
+                          {uploadingPhoto ? 'Uploading...' : 'Choose from Library'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.photoButton} 
+                      onPress={() => handlePickImage('camera')}
+                      disabled={uploadingPhoto}
+                    >
+                      <LinearGradient
+                        colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.photoButtonGradient}
+                      >
+                        <Ionicons name="camera-outline" size={24} color="#ffffff" />
+                        <Text style={styles.photoButtonText}>Take Photo</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {diaryPhotos.length > 0 && (
                   <View style={styles.inputGroup}>
+                    <Text style={styles.modalInputLabel}>Uploaded Photos ({diaryPhotos.length})</Text>
                     <FlatList
                       data={diaryPhotos}
                       horizontal
-                      keyExtractor={(item, index) => index.toString()}
+                      keyExtractor={(item, index) => `${item}-${index}`}
                       renderItem={({ item }) => (
-                        <Image source={{ uri: item }} style={styles.diaryPhoto} />
+                        <View style={styles.photoContainer}>
+                          <Image source={{ uri: item }} style={styles.diaryPhoto} />
+                          <TouchableOpacity
+                            style={styles.deletePhotoButton}
+                            onPress={() => handleDeletePhoto(item)}
+                          >
+                            <Ionicons name="close-circle" size={24} color="#ff3b30" />
+                          </TouchableOpacity>
+                        </View>
                       )}
                       contentContainerStyle={styles.photosList}
                       showsHorizontalScrollIndicator={false}
@@ -561,6 +800,118 @@ const YourPlot = () => {
           </ScrollView>
         </LinearGradient>
       </Modal>
+
+      {/* Event Modal */}
+      <EventModal 
+        visible={!!openEventId} 
+        eventId={openEventId} 
+        onClose={() => setOpenEventId(null)} 
+      />
+
+      {/* Wishlist Item Modal */}
+      <Modal visible={showWishlistModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => {
+        setShowWishlistModal(false);
+        setWishlistItemAddress(null);
+      }}>
+        <LinearGradient
+          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientContainer}
+        >
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => {
+              setShowWishlistModal(false);
+              setWishlistItemAddress(null);
+            }}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>Wishlist Item</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView style={styles.modalScrollContent} contentContainerStyle={styles.modalScrollInner}>
+            {selectedWishlistItem && (
+              <>
+                <View style={styles.diaryEventInfo}>
+                  <Text style={styles.diaryEventTitle}>{selectedWishlistItem.name}</Text>
+                  {selectedWishlistItem.note && (
+                    <Text style={styles.diaryEventDate}>{selectedWishlistItem.note}</Text>
+                  )}
+                  {selectedWishlistItem.created_at && (
+                    <Text style={styles.diaryEventOrganizer}>
+                      Added: {new Date(selectedWishlistItem.created_at).toLocaleDateString()}
+                    </Text>
+                  )}
+                  {selectedWishlistItem.latitude !== undefined && selectedWishlistItem.longitude !== undefined && (
+                    <View style={styles.diaryLocationInfo}>
+                      <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.9)" />
+                      <Text style={styles.diaryLocationText}>
+                        {wishlistItemAddress || `Lat: ${selectedWishlistItem.latitude.toFixed(6)}, Long: ${selectedWishlistItem.longitude.toFixed(6)}`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                
+                {wishlistItemRegion && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.modalInputLabel}>Location</Text>
+                    <View style={styles.mapContainer}>
+                      <MapView
+                        style={styles.map}
+                        initialRegion={wishlistItemRegion}
+                        provider={PROVIDER_GOOGLE}
+                        customMapStyle={lightMode}
+                        scrollEnabled={true}
+                        zoomEnabled={true}
+                      >
+                        <Marker 
+                          coordinate={{ 
+                            latitude: selectedWishlistItem.latitude, 
+                            longitude: selectedWishlistItem.longitude 
+                          }} 
+                          title={selectedWishlistItem.name} 
+                        />
+                      </MapView>
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitButton, styles.deleteButton]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Delete Wishlist Item',
+                      'Are you sure you want to delete this wishlist item?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: async () => {
+                            await handleDeleteWishlist(selectedWishlistItem.id);
+                            setShowWishlistModal(false);
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,59,48,0.3)', 'rgba(255,59,48,0.2)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.wishlistDeleteGradient}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#ffffff" />
+                    <Text style={styles.wishlistDeleteText}>Delete</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </LinearGradient>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -571,29 +922,55 @@ const styles = StyleSheet.create({
   gradientContainer: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
-  },
   header: {
-    marginBottom: 32,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
-  heading: {
+  headerTitle: {
     fontSize: 32,
     fontWeight: '800',
     color: '#ffffff',
-    marginBottom: 8,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 24,
+    marginBottom: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  activeTab: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
   },
-  subheading: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    fontWeight: '500',
+  activeTabText: {
+    color: '#ffffff',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingBottom: 100, // 60px (tab bar) + 40px (padding)
+  },
+  tabContent: {
+    flex: 1,
   },
   section: {
     marginBottom: 24,
@@ -603,6 +980,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
   },
   inputLabel: {
     fontSize: 16,
@@ -618,6 +1020,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   infoLabel: {
     fontSize: 16,
@@ -763,6 +1168,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
   },
+  photoButtonContainer: {
+    gap: 12,
+  },
   photoButton: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -782,12 +1190,59 @@ const styles = StyleSheet.create({
   photosList: {
     paddingVertical: 8,
   },
+  photoContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
   diaryPhoto: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     borderRadius: 12,
-    marginRight: 8,
     backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  deletePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    padding: 2,
+  },
+  mapContainer: {
+    height: 200,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  map: {
+    flex: 1,
+  },
+  diaryLocationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  diaryLocationText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  deleteButton: {
+    marginTop: 10,
+  },
+  wishlistDeleteGradient: {
+    padding: 10,
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  wishlistDeleteText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
