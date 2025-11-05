@@ -52,6 +52,27 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
     };
   }, [event]);
 
+  const reverseGeocode = async (latitude: number, longitude: number): Promise<string | null> => {
+    try {
+      const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (addresses && addresses.length > 0) {
+        const addr = addresses[0];
+        const parts = [];
+        if (addr.street) parts.push(addr.street);
+        if (addr.streetNumber) parts.push(addr.streetNumber);
+        if (parts.length === 0 && addr.name) parts.push(addr.name);
+        if (addr.city) parts.push(addr.city);
+        if (addr.region) parts.push(addr.region);
+        if (addr.postalCode) parts.push(addr.postalCode);
+        return parts.length > 0 ? parts.join(', ') : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+      return null;
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return null;
+    }
+  };
+
   const load = async () => {
     if (!eventId) return;
     setLoading(true);
@@ -61,7 +82,16 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
         fetch(`${BACKEND_API_URL}/rsvps/${eventId}`),
       ]);
       const e = await eventRes.json();
-      if (eventRes.ok) setEvent(e); else setEvent(null);
+      if (eventRes.ok) {
+        setEvent(e);
+        // Reverse geocode the location
+        if (e.latitude !== undefined && e.longitude !== undefined) {
+          const address = await reverseGeocode(e.latitude, e.longitude);
+          setEventAddress(address);
+        }
+      } else {
+        setEvent(null);
+      }
       const r = await rsvpRes.json();
       console.log("EventModal - Loaded RSVPs:", r);
       if (rsvpRes.ok) {
@@ -189,6 +219,16 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               hour: "numeric",
               minute: "2-digit",
             })}</Text>}
+
+            {eventAddress && (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.locationText}>{eventAddress}</Text>
+              </View>
+            )}
+
+
+            
 
             {region && (
               <View style={styles.mapContainer}>

@@ -16,8 +16,8 @@ CREATE TABLE public.events (
   type text CHECK (type = ANY (ARRAY['RSVP'::text, 'Spontaneous'::text])),
   user_id uuid,
   created_at timestamp with time zone DEFAULT now(),
-  latitude double precision NOT NULL,
-  longitude double precision NOT NULL,
+  latitude NUMERIC(18, 10) NOT NULL,
+  longitude NUMERIC(18, 10) NOT NULL,
   CONSTRAINT events_pkey PRIMARY KEY (id),
   CONSTRAINT events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -50,8 +50,8 @@ CREATE TABLE public.spontaneous_presences (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   status_text text,
-  latitude double precision NOT NULL,
-  longitude double precision NOT NULL,
+  latitude NUMERIC(18, 10) NOT NULL,
+  longitude NUMERIC(18, 10) NOT NULL,
   accuracy integer,
   is_active boolean NOT NULL DEFAULT true,
   last_seen timestamp with time zone NOT NULL DEFAULT now(),
