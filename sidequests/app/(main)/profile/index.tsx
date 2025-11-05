@@ -87,11 +87,11 @@ const Profile = () => {
 
   return (
     <LinearGradient
-      colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.gradientContainer}
-    >
+        colors={['#6a5acd', '#00c6ff', '#9b59b6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <ScrollView 
         style={styles.container} 
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 100, // 60px (tab bar) + 40px (padding)
   },
   header: {
     marginBottom: 32,

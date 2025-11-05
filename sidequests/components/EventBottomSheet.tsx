@@ -98,11 +98,13 @@ const EventBottomSheet: React.FC<Props> = ({ events, spontaneousPresences = [], 
   );
 
   return (
-    <BottomSheet index={1} // initial snap index
+    <BottomSheet 
+      index={1} // initial snap index
       ref={bottomSheetRef}
       snapPoints={snapPoints}
       enableDynamicSizing={false}
       backgroundComponent={(props) => <CustomBackground {...props} />}
+      bottomInset={60} // Account for tab bar height
     >
       <BottomSheetHeader mode={mode} setMode={setMode} />
 
