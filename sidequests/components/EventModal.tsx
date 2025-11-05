@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import RSVPButtons from './RSVPButtons';
 import { BACKEND_API_URL } from '@env';
 import type { Event } from '../types/event';
@@ -22,10 +23,17 @@ type Attendee = {
   users: { name: string; email: string; id: string; profile_picture?: string };
 };
 
+type Invitee = {
+  user_id: string;
+  users: { name: string; email: string; id: string; profile_picture?: string };
+};
+
 const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
   const [event, setEvent] = useState<Event | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(false);
+  const [eventAddress, setEventAddress] = useState<string | null>(null);
+  const [invitees, setInvitees] = useState<Invitee[]>([]);
 
   const yesAttendees = useMemo(
     () => attendees.filter((a) => a?.status === "yes"),
@@ -52,16 +60,47 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
     };
   }, [event]);
 
+  const reverseGeocode = async (latitude: number, longitude: number): Promise<string | null> => {
+    try {
+      const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (addresses && addresses.length > 0) {
+        const addr = addresses[0];
+        const parts = [];
+        if (addr.street) parts.push(addr.street);
+        if (addr.streetNumber) parts.push(addr.streetNumber);
+        if (parts.length === 0 && addr.name) parts.push(addr.name);
+        if (addr.city) parts.push(addr.city);
+        if (addr.region) parts.push(addr.region);
+        if (addr.postalCode) parts.push(addr.postalCode);
+        return parts.length > 0 ? parts.join(', ') : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+      return null;
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return null;
+    }
+  };
+
   const load = async () => {
     if (!eventId) return;
     setLoading(true);
     try {
-      const [eventRes, rsvpRes] = await Promise.all([
+      const [eventRes, rsvpRes, inviteeRes] = await Promise.all([
         fetch(`${BACKEND_API_URL}/events/${eventId}`),
         fetch(`${BACKEND_API_URL}/rsvps/${eventId}`),
+        fetch(`${BACKEND_API_URL}/events/${eventId}/invitees`),
       ]);
       const e = await eventRes.json();
-      if (eventRes.ok) setEvent(e); else setEvent(null);
+      if (eventRes.ok) {
+        setEvent(e);
+        // Reverse geocode the location
+        if (e.latitude !== undefined && e.longitude !== undefined) {
+          const address = await reverseGeocode(e.latitude, e.longitude);
+          setEventAddress(address);
+        }
+      } else {
+        setEvent(null);
+      }
       const r = await rsvpRes.json();
       console.log("EventModal - Loaded RSVPs:", r);
       if (rsvpRes.ok) {
@@ -70,10 +109,19 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
       } else {
         setAttendees([]);
       }
+      
+      // Get invitees
+      if (inviteeRes.ok) {
+        const inviteeData = await inviteeRes.json();
+        setInvitees(inviteeData.invitees || []);
+      } else {
+        setInvitees([]);
+      }
     } catch (e) {
       console.error("EventModal - Error loading:", e);
       setEvent(null);
       setAttendees([]);
+      setInvitees([]);
     } finally {
       setLoading(false);
     }
@@ -190,6 +238,22 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               minute: "2-digit",
             })}</Text>}
 
+            {eventAddress && (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.locationText}>{eventAddress}</Text>
+              </View>
+            )}
+            
+            {invitees.length > 0 && (
+              <View style={styles.restrictionRow}>
+                <Ionicons name="people-outline" size={16} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.restrictionText}>
+                  {invitees.length} friend{invitees.length > 1 ? 's' : ''} invited
+                </Text>
+              </View>
+            )}
+
             {region && (
               <View style={styles.mapContainer}>
                 <MapView
@@ -212,6 +276,21 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               </View>
             }
 
+            {invitees.length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Invited ({invitees.length})</Text>
+                {invitees.map((invitee) => (
+                  <View key={invitee.user_id} style={styles.attendee}>
+                    <Image source={{ uri: invitee.users?.profile_picture || 'https://via.placeholder.com/32' }} style={styles.attendeeAvatar} />
+                    <Text style={styles.attendeeName}>
+                      {invitee.users?.name || invitee.users?.email}
+                      {invitee.user_id === user?.id && " (You)"}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Attendees ({yesAttendees.length})</Text>
               {yesAttendees.length === 0 ? (
@@ -220,8 +299,11 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
                 yesAttendees.map((a) => (
                   <View key={a.user_id} style={styles.attendee}>
                     <Image source={{ uri: a.users?.profile_picture || 'https://via.placeholder.com/32' }} style={styles.attendeeAvatar} />
-                    <Text style={styles.attendeeName}>{a.users?.name || a.users?.email}
-                      {a.user_id===event.user_id && (event.user_id===user?.id ? " (You)" : " (Host)") }</Text>
+                    <Text style={styles.attendeeName}>
+                      {a.users?.name || a.users?.email}
+                      {a.user_id === user?.id && " (You)"}
+                      {a.user_id === event.user_id && a.user_id !== user?.id && " (Host)"}
+                    </Text>
                   </View>
                 ))
               )}
@@ -247,6 +329,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', color: '#ffffff' },
   hostName: { color: '#ffffff', opacity: 0.85 },
   sub: { color: 'rgba(255,255,255,0.9)', marginTop: 6 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  locationText: { color: 'rgba(255,255,255,0.9)', fontSize: 14 },
+  restrictionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  restrictionText: { color: 'rgba(255,255,255,0.9)', fontSize: 14 },
   mapContainer: { height: 220, borderRadius: 16, overflow: 'hidden', marginVertical: 12 },
   map: { width: '100%', height: '100%' },
   card: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 16, padding: 14, marginVertical: 8 },

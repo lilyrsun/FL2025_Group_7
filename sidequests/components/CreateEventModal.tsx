@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   View, 
   Text, 
@@ -10,7 +10,9 @@ import {
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
-  Modal
+  Modal,
+  Image,
+  FlatList
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -32,6 +34,13 @@ type Props = {
   onSuccess?: () => void;
 };
 
+interface Friend {
+  id: string;
+  name: string;
+  email: string;
+  profile_picture?: string;
+}
+
 const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) => {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date | null>(null);
@@ -40,8 +49,39 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
   const [selectedLocation, setSelectedLocation] = useState<{ address: string; lat: number; lng: number } | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [showFriendsSelector, setShowFriendsSelector] = useState(false);
+  const [restrictToFriends, setRestrictToFriends] = useState(false);
 
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (isVisible && user?.id) {
+      loadFriends();
+    }
+  }, [isVisible, user?.id]);
+
+  const loadFriends = async () => {
+    if (!user?.id) return;
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/friends/${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFriends(data);
+      }
+    } catch (error) {
+      console.error('Failed to load friends:', error);
+    }
+  };
+
+  const toggleFriendSelection = (friendId: string) => {
+    setSelectedFriends(prev => 
+      prev.includes(friendId) 
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId]
+    );
+  };
 
   const handleSubmit = async () => {
     if (!title || !selectedLocation?.lat || !selectedLocation.lng) {
@@ -69,6 +109,7 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
           latitude: selectedLocation?.lat,
           longitude: selectedLocation?.lng,
           user_id: user?.id,
+          invitee_ids: restrictToFriends ? selectedFriends : null, // null means public to all friends
         }),
       });
 
@@ -88,6 +129,9 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
       setQuery("");
       setShowDatePicker(false);
       setShowTimePicker(false);
+      setSelectedFriends([]);
+      setRestrictToFriends(false);
+      setShowFriendsSelector(false);
       
       // Close modal first
       onClose();
@@ -132,6 +176,9 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
     setQuery("");
     setShowDatePicker(false);
     setShowTimePicker(false);
+    setSelectedFriends([]);
+    setRestrictToFriends(false);
+    setShowFriendsSelector(false);
     onClose();
   };
 
@@ -265,6 +312,103 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
                   <PickLocation selected={selectedLocation} setSelected={setSelectedLocation} query={query} setQuery={setQuery} />
                 </View>
               </View>
+
+              <View style={styles.inputGroup}>
+                <View style={styles.restrictRow}>
+                  <View style={styles.restrictLabelContainer}>
+                    <Text style={styles.inputLabel}>Restrict to Friends</Text>
+                    {restrictToFriends && (
+                      <Text style={styles.friendsCountText}>
+                        {selectedFriends.length === 0 
+                          ? "All friends can see"
+                          : `${selectedFriends.length} friend${selectedFriends.length > 1 ? 's' : ''} selected`}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.toggleContainer}
+                    onPress={() => {
+                      setRestrictToFriends(!restrictToFriends);
+                      if (!restrictToFriends) {
+                        setShowFriendsSelector(true);
+                      } else {
+                        setSelectedFriends([]);
+                      }
+                    }}
+                  >
+                    <LinearGradient
+                      colors={restrictToFriends ? ['rgba(106, 90, 205, 0.3)', 'rgba(155, 89, 182, 0.2)'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                      style={styles.toggleGradient}
+                    >
+                      <Ionicons 
+                        name={restrictToFriends ? "checkmark-circle" : "ellipse-outline"} 
+                        size={24} 
+                        color={restrictToFriends ? "#ffffff" : "rgba(255,255,255,0.5)"} 
+                      />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+                {restrictToFriends && (
+                  <View style={styles.friendsSelectorContainer}>
+                    <TouchableOpacity
+                      style={styles.selectFriendsButton}
+                      onPress={() => setShowFriendsSelector(!showFriendsSelector)}
+                    >
+                      <LinearGradient
+                        colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)']}
+                        style={styles.selectFriendsGradient}
+                      >
+                        <View style={styles.selectFriendsContent}>
+                          <Text style={styles.selectFriendsText}>
+                            {showFriendsSelector ? "Hide Friends" : "Select Friends"}
+                          </Text>
+                          <Ionicons 
+                            name={showFriendsSelector ? "chevron-up" : "chevron-down"} 
+                            size={20} 
+                            color="rgba(106, 90, 205, 0.6)" 
+                          />
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    
+                    {showFriendsSelector && friends.length > 0 && (
+                      <View style={styles.friendsList}>
+                        <FlatList
+                          data={friends}
+                          keyExtractor={(item) => item.id}
+                          renderItem={({ item }) => {
+                            const isSelected = selectedFriends.includes(item.id);
+                            return (
+                              <TouchableOpacity
+                                style={[styles.friendItem, isSelected && styles.friendItemSelected]}
+                                onPress={() => toggleFriendSelection(item.id)}
+                              >
+                                <Image
+                                  source={{ uri: item.profile_picture || 'https://via.placeholder.com/40' }}
+                                  style={styles.friendAvatar}
+                                />
+                                <Text style={styles.friendName}>{item.name}</Text>
+                                <Ionicons
+                                  name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                                  size={24}
+                                  color={isSelected ? "#6a5acd" : "rgba(106, 90, 205, 0.3)"}
+                                />
+                              </TouchableOpacity>
+                            );
+                          }}
+                          nestedScrollEnabled
+                        />
+                      </View>
+                    )}
+                    
+                    {showFriendsSelector && friends.length === 0 && (
+                      <View style={styles.noFriendsContainer}>
+                        <Text style={styles.noFriendsText}>No friends yet. Add friends to restrict events.</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
             </View>
 
             <TouchableOpacity 
@@ -390,6 +534,92 @@ const styles = StyleSheet.create({
   datePicker: {
     backgroundColor: 'transparent',
     borderRadius: 14,
+  },
+  restrictRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  restrictLabelContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  friendsCountText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+  },
+  toggleContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  toggleGradient: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendsSelectorContainer: {
+    marginTop: 12,
+  },
+  selectFriendsButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  selectFriendsGradient: {
+    borderRadius: 16,
+    padding: 2,
+  },
+  selectFriendsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 14,
+  },
+  selectFriendsText: {
+    fontSize: 16,
+    color: '#6a5acd',
+    fontWeight: '500',
+  },
+  friendsList: {
+    maxHeight: 200,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  friendItemSelected: {
+    backgroundColor: 'rgba(106, 90, 205, 0.2)',
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  friendName: {
+    flex: 1,
+    fontSize: 16,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  noFriendsContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  noFriendsText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

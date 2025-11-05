@@ -119,7 +119,11 @@ const Home = () => {
       }
 
       console.log("🌐 Fetching events from backend...");
-      const res = await fetch(BACKEND_API_URL + "/events");
+      // Include user_id to filter events based on invitee restrictions
+      const url = user?.id 
+        ? `${BACKEND_API_URL}/events?user_id=${user.id}`
+        : `${BACKEND_API_URL}/events`;
+      const res = await fetch(url);
 
       if (!res.ok) {
         console.error("❌ Backend responded with an error:", res.status, res.statusText);
@@ -153,7 +157,7 @@ const Home = () => {
         setEvents([]);
       }
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     // Initial fetch only - realtime updates handle subsequent changes

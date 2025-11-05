@@ -141,7 +141,7 @@ const PickLocation: React.FC<PickLocationProps> = ({ selected, setSelected, quer
               ✨ {selected.address}
             </Text>
             <Text style={styles.coordsText}>
-              📍 Lat: {selected.lat.toFixed(4)}, Long: {selected.lng.toFixed(4)}
+              📍 Lat: {selected.lat.toFixed(10)}, Long: {selected.lng.toFixed(10)}
             </Text>
           </LinearGradient>
         </View>

@@ -207,7 +207,8 @@ export default function spontaneousRoutes(supabase) {
           `)
           .in("user_id", friendIds)
           .eq("is_active", true)
-          .eq("visibility", "friends");
+          .eq("visibility", "friends")
+          .gt("expires_at", new Date().toISOString());
 
         if (friendPresenceError) {
           console.error("Error fetching friend presences:", friendPresenceError);
@@ -225,7 +226,8 @@ export default function spontaneousRoutes(supabase) {
         `)
         .eq("is_active", true)
         .eq("visibility", "public")
-        .neq("user_id", user_id); // Exclude the requesting user's own presence
+        .neq("user_id", user_id) // Exclude the requesting user's own presence
+        .gt("expires_at", new Date().toISOString());
 
       if (publicPresenceError) {
         console.error("Error fetching public presences:", publicPresenceError);
@@ -290,6 +292,7 @@ export default function spontaneousRoutes(supabase) {
         `)
         .eq("user_id", user_id)
         .eq("is_active", true)
+        .gt("expires_at", new Date().toISOString())
         .single();
 
       if (error) {
@@ -393,6 +396,7 @@ export default function spontaneousRoutes(supabase) {
         `)
         .eq("id", presence_id)
         .eq("is_active", true)
+        .gt("expires_at", new Date().toISOString())
         .single();
 
       if (error) {

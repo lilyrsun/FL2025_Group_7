@@ -28,19 +28,62 @@ export default function uploadRoutes(supabase) {
 
   // Upload diary photo
   router.post("/diary-photo/:eventId", upload.single("file"), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-    const filename = `diary/${req.params.eventId}-${randomUUID()}.jpg`;
+      // Validate file type
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: "File must be an image" });
+      }
 
-    const { error } = await supabase.storage
-      .from("uploads")
-      .upload(filename, req.file.buffer, { contentType: req.file.mimetype });
+      // Get file extension from mimetype or use jpg as default
+      const mimeTypeMap = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+      };
+      const extension = mimeTypeMap[req.file.mimetype] || 'jpg';
+      const filename = `diary/${req.params.eventId}-${randomUUID()}.${extension}`;
 
-    if (error) return res.status(400).json({ error: error.message });
+      const { error } = await supabase.storage
+        .from("uploads")
+        .upload(filename, req.file.buffer, { 
+          contentType: req.file.mimetype,
+          upsert: false // Don't overwrite existing files
+        });
 
-    const { data: { publicUrl } } = supabase.storage.from("uploads").getPublicUrl(filename);
+      if (error) {
+        console.error("Supabase upload error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error.error,
+          bucket: 'uploads',
+          filename: filename
+        });
+        
+        // Provide helpful error messages
+        if (error.message?.includes('Bucket') || error.message?.includes('not found')) {
+          return res.status(400).json({ 
+            error: "Storage bucket 'uploads' not found. Please create it in Supabase Storage settings.",
+            details: error.message 
+          });
+        }
+        
+        return res.status(400).json({ error: error.message || "Failed to upload file" });
+      }
 
-    res.json({ url: publicUrl });
+      const { data: { publicUrl } } = supabase.storage.from("uploads").getPublicUrl(filename);
+
+      res.json({ url: publicUrl });
+    } catch (error) {
+      console.error("Error uploading diary photo:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   return router;
