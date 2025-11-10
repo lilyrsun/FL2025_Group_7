@@ -1,5 +1,5 @@
 -- USERS TABLE
-CREATE TABLE public.users (
+CREATE TABLE IF NOT EXISTS public.users (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name text NOT NULL,
   email text NOT NULL UNIQUE,
@@ -9,7 +9,7 @@ CREATE TABLE public.users (
 );
 
 -- EVENTS TABLE
-CREATE TABLE public.events (
+CREATE TABLE IF NOT EXISTS public.events (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   title text NOT NULL,
   date date NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE public.events (
 );
 
 -- EVENT IMAGES
-CREATE TABLE public.event_images (
+CREATE TABLE IF NOT EXISTS public.event_images (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   event_id uuid,
   image_url text NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE public.event_images (
 );
 
 -- FRIENDSHIPS
-CREATE TABLE public.friendships (
+CREATE TABLE IF NOT EXISTS public.friendships (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id_1 uuid NOT NULL,
   user_id_2 uuid NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE public.friendships (
 );
 
 -- SPONTANEOUS PRESENCES
-CREATE TABLE public.spontaneous_presences (
+CREATE TABLE IF NOT EXISTS public.spontaneous_presences (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   status_text text,
@@ -64,7 +64,7 @@ CREATE TABLE public.spontaneous_presences (
 );
 
 -- SPONTANEOUS PRESENCE PARTICIPANTS
-CREATE TABLE public.spontaneous_presence_participants (
+CREATE TABLE IF NOT EXISTS public.spontaneous_presence_participants (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   presence_id uuid NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE public.spontaneous_presence_participants (
 );
 
 -- EVENT RSVPS
-CREATE TABLE public.event_rsvps (
+CREATE TABLE IF NOT EXISTS public.event_rsvps (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
   event_id uuid NOT NULL,
