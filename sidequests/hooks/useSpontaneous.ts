@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { BACKEND_API_URL } from '@env';
 import * as Location from 'expo-location';
@@ -28,6 +28,7 @@ export function useSpontaneous(userId: string | null, onEventsChange?: (event: E
   const [myPresence, setMyPresence] = useState<SpontaneousPresence | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription | null>(null);
+  const lastFetchParams = useRef<{ latitude: number; longitude: number; radiusMiles: number } | null>(null);
 
   // Get user's active presence on mount
   useEffect(() => {
@@ -105,6 +106,7 @@ export function useSpontaneous(userId: string | null, onEventsChange?: (event: E
     if (!userId) return;
 
     try {
+      lastFetchParams.current = { latitude, longitude, radiusMiles };
       const response = await fetch(
         `${BACKEND_API_URL}/spontaneous/nearby?user_id=${userId}&latitude=${latitude}&longitude=${longitude}&radius_miles=${radiusMiles}`
       );
@@ -176,6 +178,10 @@ export function useSpontaneous(userId: string | null, onEventsChange?: (event: E
               // For friends-only, don't add via realtime - let fetchNearbyPresences handle it
               // This ensures proper friendship checking
               console.log('Friends-only presence detected, will be added via fetchNearbyPresences');
+              const params = lastFetchParams.current;
+              if (params) {
+                fetchNearbyPresences(params.latitude, params.longitude, params.radiusMiles);
+              }
             }
           }
         }
@@ -208,6 +214,7 @@ export function useSpontaneous(userId: string | null, onEventsChange?: (event: E
               })
               .then(data => {
                 if (data && data.is_active) {
+                  let shouldRefetchFriends = false;
                   setPresences((prev) => {
                     const existing = prev.find(p => p.id === data.id);
                     
@@ -222,10 +229,18 @@ export function useSpontaneous(userId: string | null, onEventsChange?: (event: E
                         // Add new public
                         return [...prev, data as SpontaneousPresence];
                       }
+                    } else if (data.visibility === 'friends' && !existing) {
+                      shouldRefetchFriends = true;
                     }
                     // If friends-only and not in list, don't add it
                     return prev;
                   });
+                  if (shouldRefetchFriends) {
+                    const params = lastFetchParams.current;
+                    if (params) {
+                      fetchNearbyPresences(params.latitude, params.longitude, params.radiusMiles);
+                    }
+                  }
                 } else {
                   // Remove if not active
                   setPresences((prev) => prev.filter(p => p.id !== payload.old.id));
