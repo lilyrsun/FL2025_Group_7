@@ -41,13 +41,93 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 ## How to Run
 &lt;Instructions for how to run your project. Include the URI to your project at the top if applicable.&gt;
 
-- get docker container running and put variables in the .env file
-- navigate to the the `/sidequests` folder
-- `yarn install` everything in that folder
-- in another terminal, cd into the backend folder, then run `npm install` there
-- run `npx expo start -c` for frontend app and in the other terminal, run `npm run dev` for the supabase backend
-  - add your IP address that you get from *"Metro waiting on exp://###.###.##.###"* to the .env file for the EXPO_API_URL and BACKEND_API_URL
-- use cloudflared to change http to https and update the urls in the .env file
-`cloudflared tunnel --url http://localhost:54321`
-  - add that to the google cloud console and supabase stop & start to reset it
-- visit `http://localhost:54323/project/default/database/schemas` to see database structure
+Follow these steps to set up and run the project locally:
+1. **Start the Docker container** and add the required environment variables to your `.env` file.
+
+2. **Install frontend dependencies:**
+   - Navigate to the `/sidequests` folder.
+   - Run:
+     ```bash
+     yarn install
+     ```
+
+3. **Install backend dependencies:**
+   - In a new terminal, navigate to the `/backend` folder.
+   - Run:
+     ```bash
+     npm install
+     ```
+
+4. **Start both servers:**
+   - In the `/sidequests` terminal, run:
+     ```bash
+     npx expo start -c
+     ```
+   - In the `/backend` terminal, run:
+     ```bash
+     npm run dev
+     ```
+
+5. **Update environment variables:**
+   - When the Expo app starts, you’ll see a line like:
+     ```
+     Metro waiting on exp://###.###.##.###:8081
+     ```
+     Use that IP address in your `.env` file:
+     ```
+     EXPO_API_URL="exp://###.###.##.###:8081"
+     BACKEND_API_URL="http://###.###.##.###:4000"
+     ```
+     (The IP address for both should match.)
+
+6. **Set up Cloudflared (for Supabase and Nodejs backend):**
+   - If you don’t already have it installed, run:
+     ```bash
+     brew install cloudflared
+     ```
+   - After installation, start a quick tunnel:
+     ```bash
+     cloudflared tunnel --url http://localhost:54321
+     ```
+   - When you see:
+     ```
+     Your quick Tunnel has been created! Visit it at:
+     ```
+     Copy the URL that follows (you'll need it in the next step).
+
+7. **Add Supabase environment variables:**
+   - In your `.env` file, define `SUPABASE_URL` to be the copied cloudflared URL
+   - Next, define `SUPABASE_REDIRECT_URL` to be the copied cloudflares URL with the slug "/auth/v1/callback"
+
+8. **Update Google Cloud Console settings:**
+   - Go to your project in the Google Cloud Console.
+   - Under **Authorized JavaScript origins**, add your `SUPABASE_URL`.
+   - Under **Authorized redirect URIs**, add your `SUPABASE_REDIRECT_URL`.
+   - Click **Save**. Note that it might take ~5 minutes for these changes to go into effect!
+  
+9. **Create a Cloudflare tunnel for the backend:**
+   - Run a second Cloudflare tunnel pointing to the backend, pasting in your backend API URL:
+     ```bash
+     cloudflared tunnel --url http://###.##.###.##:4000
+     ```
+
+10. **Restart services:**
+    - Stop your Expo frontend.
+    - Restart Supabase:
+      ```bash
+      supabase stop
+      supabase start
+      ```
+    - When Supabase is running again, restart the frontend with a tunnel:
+      ```bash
+      npx expo start --tunnel -c
+      ```
+
+11. **Run the app:**
+    - Scan the QR code with a device that has **Expo Go** installed (e.g., iPhone or iPad), **or** press `i` to open the iOS simulator.
+
+12. **View the database:**
+    - Visit the link below to see the database structure:
+      ```
+      http://localhost:54323/project/default/database/schemas
+      ```
