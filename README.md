@@ -76,11 +76,9 @@ Follow these steps to set up and run the project locally:
      Use that IP address in your `.env` file:
      ```
      EXPO_API_URL="exp://###.###.##.###:8081"
-     BACKEND_API_URL="http://###.###.##.###:4000"
      ```
-     (The IP address for both should match.)
 
-6. **Set up Cloudflared (for Supabase and Nodejs backend):**
+6. **Set up Cloudflared (for Supabase and Node.js backend):**
    - If you don’t already have it installed, run:
      ```bash
      brew install cloudflared
@@ -106,9 +104,17 @@ Follow these steps to set up and run the project locally:
    - Click **Save**. Note that it might take ~5 minutes for these changes to go into effect!
   
 9. **Create a Cloudflare tunnel for the backend:**
-   - Run a second Cloudflare tunnel pointing to the backend, pasting in your backend API URL:
+   - Run a second Cloudflare tunnel pointing to the backend, pasting in your backend API URL. The four sets of digits are your IP address:
      ```bash
      cloudflared tunnel --url http://###.##.###.##:4000
+     ```
+   - When that runs, you'll see a line like:
+     ```bash
+     Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):
+     ```
+     A URL will follow that line. Copy it, and use it to define your backend API URL in the `.env` file:
+     ```bash
+     BACKEND_API_URL=hhttps://louise-therapist-foundations-museum.trycloudflare.com
      ```
 
 10. **Restart services:**
