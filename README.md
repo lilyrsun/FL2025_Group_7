@@ -43,8 +43,9 @@ Our app, **Sidequests,** is a reverse form of social media. Instead of users pos
 
 - get docker container running and put variables in the .env file
 - navigate to the the `/sidequests` folder
-- `yarn install` everything and `npm install` for backend
-- run `npx expo start -c` for frontend app and in another terminal, `cd backend` and `npm run dev` for supabase backend
+- `yarn install` everything in that folder
+- in another terminal, cd into the backend folder, then run `npm install` there
+- run `npx expo start -c` for frontend app and in the other terminal, run `npm run dev` for the supabase backend
   - add your IP address that you get from *"Metro waiting on exp://###.###.##.###"* to the .env file for the EXPO_API_URL and BACKEND_API_URL
 - use cloudflared to change http to https and update the urls in the .env file
 `cloudflared tunnel --url http://localhost:54321`
