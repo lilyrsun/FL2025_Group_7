@@ -62,6 +62,11 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
     }
   }, [isVisible, user?.id]);
 
+  const roundToMinuteInterval = (value: Date, intervalMinutes: number) => {
+    const intervalMs = intervalMinutes * 60 * 1000;
+    return new Date(Math.round(value.getTime() / intervalMs) * intervalMs);
+  };
+
   const loadFriends = async () => {
     if (!user?.id) return;
     try {
@@ -159,10 +164,11 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
   const onChangeTime = (_event: any, selectedTime?: Date) => {
     setShowTimePicker(Platform.OS === "ios");
     if (selectedTime) {
+      const roundedTime = roundToMinuteInterval(selectedTime, 5);
       setDate((prev) => {
         const base = prev || new Date();
         const merged = new Date(base);
-        merged.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+        merged.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0);
         return merged;
       });
     }
@@ -298,6 +304,7 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
                       mode="time"
                       display="spinner"
                       is24Hour={false}
+                      minuteInterval={5}
                       onChange={onChangeTime}
                       textColor="#6a5acd"
                       style={styles.datePicker}
