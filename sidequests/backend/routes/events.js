@@ -177,5 +177,69 @@ export default function eventRoutes(supabase) {
     }
   });
 
+  // Delete an event (host only)
+  router.delete("/:id", async (req, res) => {
+    const { user_id } = req.body || {};
+    const eventId = req.params.id;
+
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id is required" });
+    }
+
+    try {
+      const { data: event, error: fetchError } = await supabase
+        .from("events")
+        .select("id, user_id")
+        .eq("id", eventId)
+        .single();
+
+      if (fetchError) {
+        if (fetchError.code === "PGRST116") {
+          return res.status(404).json({ error: "Event not found" });
+        }
+        console.error("Error fetching event:", fetchError);
+        return res.status(400).json({ error: fetchError.message });
+      }
+
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      if (event.user_id !== user_id) {
+        return res.status(403).json({ error: "You are not allowed to delete this event" });
+      }
+
+      const deleteSteps = [
+        supabase.from("event_images").delete().eq("event_id", eventId),
+        supabase.from("event_rsvp_invitees").delete().eq("event_id", eventId),
+        supabase.from("event_rsvps").delete().eq("event_id", eventId),
+        supabase.from("diary_entries").delete().eq("event_id", eventId),
+      ];
+
+      for (const step of deleteSteps) {
+        const { error } = await step;
+        if (error) {
+          console.error("Error cleaning up related event data:", error);
+          return res.status(400).json({ error: error.message });
+        }
+      }
+
+      const { error: deleteError } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", eventId);
+
+      if (deleteError) {
+        console.error("Error deleting event:", deleteError);
+        return res.status(400).json({ error: deleteError.message });
+      }
+
+      res.json({ message: "Event deleted successfully" });
+    } catch (error) {
+      console.error("Unexpected error deleting event:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   return router;
 }
