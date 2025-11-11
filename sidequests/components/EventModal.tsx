@@ -34,6 +34,7 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
   const [loading, setLoading] = useState(false);
   const [eventAddress, setEventAddress] = useState<string | null>(null);
   const [invitees, setInvitees] = useState<Invitee[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   const yesAttendees = useMemo(
     () => attendees.filter((a) => a?.status === "yes"),
@@ -202,6 +203,53 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
     await load();
   };
 
+  const confirmDelete = () => {
+    if (!event || !user?.id) return;
+
+    Alert.alert(
+      "Delete event?",
+      "This will remove the event for everyone invited.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              const response = await fetch(`${BACKEND_API_URL}/events/${event.id}`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: user?.id }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                const message = error?.error || "Failed to delete the event.";
+                Alert.alert("Error", message);
+                return;
+              }
+
+              Alert.alert("Deleted", "The event has been removed.", [
+                {
+                  text: "OK",
+                  onPress: () => {
+                    onClose();
+                  },
+                },
+              ]);
+            } catch (error) {
+              console.error("Error deleting event:", error);
+              Alert.alert("Error", "Something went wrong while deleting the event.");
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   console.log("Event attendees:", attendees);
 
   return (
@@ -212,7 +260,21 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Event Details</Text>
-          <View style={{ width: 40 }} />
+          {event?.user_id === user?.id ? (
+            <TouchableOpacity
+              style={[styles.closeButton, styles.deleteIconButton, deleting && styles.deleteButtonDisabled]}
+              onPress={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Ionicons name="trash-outline" size={20} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         {loading ? (
@@ -268,13 +330,12 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
               </View>
             )}
 
-            {
-              event.user_id!==user?.id &&
+            {event.user_id !== user?.id && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>RSVP</Text>
                 <RSVPButtons initialStatus={isUserInAttendees()} eventId={event.id} onChanged={onRsvpChanged} />
               </View>
-            }
+            )}
 
             {invitees.length > 0 && (
               <View style={styles.card}>
@@ -321,6 +382,8 @@ const styles = StyleSheet.create({
   gradientContainer: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 32, paddingBottom: 16 },
   closeButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  deleteIconButton: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  headerSpacer: { width: 40, height: 40 },
   headerTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700' },
   content: { paddingHorizontal: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -341,6 +404,7 @@ const styles = StyleSheet.create({
   attendee: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   attendeeAvatar: { width: 32, height: 32, borderRadius: 16 },
   attendeeName: { color: '#ffffff' },
+  deleteButtonDisabled: { opacity: 0.6 },
 });
 
 
