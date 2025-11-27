@@ -71,6 +71,48 @@ const YourPlot = () => {
   
   // Event modal state
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [createEventFromWishlist, setCreateEventFromWishlist] = useState<{ title: string; location: { address: string; lat: number; lng: number } } | null>(null);
+  
+  // Full-screen image viewer state
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+
+  // Debug: Log when photo viewer state changes
+  useEffect(() => {
+    console.log('Photo viewer state changed:', { showPhotoViewer, selectedPhotoUrl });
+  }, [showPhotoViewer, selectedPhotoUrl]);
+
+  // Helper function to replace localhost URLs with ngrok/public URL
+  const replaceLocalhostUrl = (url: string): string => {
+    if (!url || !url.includes('localhost:54321')) {
+      return url;
+    }
+    
+    // Try to get the public URL from SUPABASE_URL (for photo URLs) or BACKEND_API_URL
+    // Extract the base URL (e.g., https://abc123.ngrok.io from https://abc123.ngrok.io:4000)
+    try {
+      // First try SUPABASE_URL (for Supabase storage URLs)
+      const supabaseUrl = SUPABASE_URL ? new URL(SUPABASE_URL) : null;
+      if (supabaseUrl && !supabaseUrl.hostname.includes('localhost')) {
+        const baseUrl = `${supabaseUrl.protocol}//${supabaseUrl.hostname}`;
+        return url.replace(/http:\/\/localhost:54321/g, baseUrl);
+      }
+      
+      // Fallback to BACKEND_API_URL
+      const backendUrl = new URL(BACKEND_API_URL);
+      if (!backendUrl.hostname.includes('localhost')) {
+        const baseUrl = `${backendUrl.protocol}//${backendUrl.hostname}`;
+        return url.replace(/http:\/\/localhost:54321/g, baseUrl);
+      }
+      
+      // If both are still localhost, return original URL
+      return url;
+    } catch (e) {
+      console.error('Error replacing localhost URL:', e);
+      return url;
+    }
+  };
 
   const loadData = async () => {
     if (!user?.id) return;
