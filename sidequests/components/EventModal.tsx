@@ -325,7 +325,17 @@ const EventModal: React.FC<Props> = ({ visible, onClose, eventId }) => {
                   customMapStyle={lightMode}
                   showsUserLocation
                 >
-                  <Marker coordinate={{ latitude: event.latitude, longitude: event.longitude }} title={event.title} />
+                  <Marker 
+                    coordinate={{ latitude: event.latitude, longitude: event.longitude }} 
+                    title={event.title}
+                    anchor={{ x: 0.5, y: 1 }}
+                  >
+                    <Image 
+                      source={require("../assets/icons/map-pin.png")} 
+                      style={{ width: 32, height: 40 }}
+                      resizeMode="contain"
+                    />
+                  </Marker>
                 </MapView>
               </View>
             )}
