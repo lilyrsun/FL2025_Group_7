@@ -1,16 +1,18 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, TextInput, Modal, FlatList, Alert } from 'react-native'
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, TextInput, Modal, FlatList, Alert, KeyboardAvoidingView, Platform, Dimensions } from 'react-native'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BACKEND_API_URL } from '@env';
+import { BACKEND_API_URL, SUPABASE_URL } from '@env';
 import { Ionicons } from '@expo/vector-icons';
 import type { Event } from '../../types/event';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import PickLocation from '../../components/PickLocation';
 import EventModal from '../../components/EventModal';
+import CreateEventModal from '../../components/CreateEventModal';
+import PhotoViewer from '../../components/PhotoViewer';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { lightMode } from '../../constants/mapStyles';
 
@@ -71,7 +73,7 @@ const YourPlot = () => {
   
   // Event modal state
   const [openEventId, setOpenEventId] = useState<string | null>(null);
-const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [createEventFromWishlist, setCreateEventFromWishlist] = useState<{ title: string; location: { address: string; lat: number; lng: number } } | null>(null);
   
   // Full-screen image viewer state
@@ -207,6 +209,28 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
     }
   };
 
+  const handleCreateEventFromWishlist = async (item: WishlistItem) => {
+    // Get the address for the location
+    let address = wishlistItemAddress;
+    if (!address && item.latitude !== undefined && item.longitude !== undefined) {
+      address = await reverseGeocode(item.latitude, item.longitude);
+    }
+    
+    // Set the pre-filled data for CreateEventModal
+    setCreateEventFromWishlist({
+      title: item.name,
+      location: {
+        address: address || `${item.latitude.toFixed(6)}, ${item.longitude.toFixed(6)}`,
+        lat: item.latitude,
+        lng: item.longitude,
+      },
+    });
+    
+    // Close wishlist modal and open create event modal
+    setShowWishlistModal(false);
+    setShowCreateEventModal(true);
+  };
+
 
   const reverseGeocode = async (latitude: number, longitude: number): Promise<string | null> => {
     try {
@@ -232,7 +256,25 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const openDiaryEntry = async (event: DiaryEvent) => {
     setSelectedDiaryEvent(event);
     setDiaryReflection(event.diary?.reflection || '');
-    setDiaryPhotos(event.diary?.photo_urls || []);
+    
+    // Handle photo_urls - might be string or array
+    let photos = event.diary?.photo_urls || [];
+    if (typeof photos === 'string') {
+      try {
+        photos = JSON.parse(photos);
+      } catch (e) {
+        console.error('Error parsing photo_urls:', e);
+        photos = [];
+      }
+    }
+    if (!Array.isArray(photos)) {
+      photos = [];
+    }
+    // Replace localhost URLs with ngrok URL for physical devices
+    photos = photos.map(photo => replaceLocalhostUrl(photo));
+    setDiaryPhotos(photos);
+    
+    console.log('Loaded diary photos:', photos);
     setShowDiaryModal(true);
     
     // Reverse geocode the location
@@ -364,6 +406,27 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
       });
 
       if (response.ok) {
+        const savedEntry = await response.json();
+        // Update the selected event with the saved data
+        if (savedEntry && selectedDiaryEvent) {
+          setSelectedDiaryEvent({
+            ...selectedDiaryEvent,
+            diary: {
+              ...(selectedDiaryEvent.diary || {}),
+              id: savedEntry.id || selectedDiaryEvent.diary?.id,
+              user_id: savedEntry.user_id || selectedDiaryEvent.diary?.user_id || user.id,
+              event_id: savedEntry.event_id || selectedDiaryEvent.diary?.event_id || selectedDiaryEvent.id,
+              reflection: savedEntry.reflection,
+              photo_urls: savedEntry.photo_urls || [],
+              created_at: savedEntry.created_at || selectedDiaryEvent.diary?.created_at,
+              updated_at: savedEntry.updated_at || selectedDiaryEvent.diary?.updated_at,
+            } as DiaryEntry
+          });
+          // Also update the local photos state to ensure UI is in sync
+          if (savedEntry.photo_urls) {
+            setDiaryPhotos(savedEntry.photo_urls);
+          }
+        }
         loadData();
       }
     } catch (error) {
@@ -494,10 +557,13 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                   <Text style={styles.emptySubtext}>Add locations to your wishlist to visit later!</Text>
                 </View>
               ) : (
-                wishlist.map((item) => (
+                wishlist.map((item, index) => (
                   <TouchableOpacity 
                     key={item.id} 
-                    style={styles.infoItem}
+                    style={[
+                      styles.infoItem,
+                      index < wishlist.length - 1 && styles.infoItemSeparator
+                    ]}
                     onPress={async () => {
                       setSelectedWishlistItem(item);
                       setShowWishlistModal(true);
@@ -538,10 +604,13 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                   <Text style={styles.emptySubtext}>Events you RSVP to will appear here</Text>
                 </View>
               ) : (
-                upcomingRsvps.map((evt) => (
+                upcomingRsvps.map((evt, index) => (
                   <TouchableOpacity
                     key={evt.id}
-                    style={styles.infoItem}
+                    style={[
+                      styles.infoItem,
+                      index < upcomingRsvps.length - 1 && styles.infoItemSeparator
+                    ]}
                     onPress={() => setOpenEventId(evt.id)}
                   >
                     <View style={styles.eventItem}>
@@ -574,10 +643,13 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                   <Text style={styles.emptySubtext}>After events, you can add diary entries here</Text>
                 </View>
               ) : (
-                diaryEvents.map((evt) => (
+                diaryEvents.map((evt, index) => (
                   <TouchableOpacity
                     key={evt.id}
-                    style={styles.infoItem}
+                    style={[
+                      styles.infoItem,
+                      index < diaryEvents.length - 1 && styles.infoItemSeparator
+                    ]}
                     onPress={() => openDiaryEntry(evt)}
                   >
                     <View style={styles.eventItem}>
@@ -617,7 +689,16 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
             <Text style={styles.modalHeaderTitle}>Add to Wishlist</Text>
             <View style={{ width: 40 }} />
           </View>
-          <ScrollView style={styles.modalScrollContent} contentContainerStyle={styles.modalScrollInner}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <ScrollView 
+              style={styles.modalScrollContent} 
+              contentContainerStyle={styles.modalScrollInner}
+              keyboardShouldPersistTaps="handled"
+            >
             <View style={styles.inputGroup}>
               <Text style={styles.modalInputLabel}>Location Name</Text>
               <LinearGradient
@@ -673,6 +754,7 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
               </LinearGradient>
             </TouchableOpacity>
           </ScrollView>
+          </KeyboardAvoidingView>
         </LinearGradient>
       </Modal>
 
@@ -697,7 +779,16 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
             </Text>
             <View style={{ width: 40 }} />
           </View>
-          <ScrollView style={styles.modalScrollContent} contentContainerStyle={styles.modalScrollInner}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <ScrollView 
+              style={styles.modalScrollContent} 
+              contentContainerStyle={styles.modalScrollInner}
+              keyboardShouldPersistTaps="handled"
+            >
             {selectedDiaryEvent && (
               <>
                 <View style={styles.diaryEventInfo}>
@@ -737,8 +828,15 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                             latitude: selectedDiaryEvent.latitude, 
                             longitude: selectedDiaryEvent.longitude 
                           }} 
-                          title={selectedDiaryEvent.title} 
-                        />
+                          title={selectedDiaryEvent.title}
+                          anchor={{ x: 0.5, y: 1 }}
+                        >
+                          <Image 
+                            source={require("../../assets/icons/map-pin.png")} 
+                            style={{ width: 32, height: 40 }}
+                            resizeMode="contain"
+                          />
+                        </Marker>
                       </MapView>
                     </View>
                   </View>
@@ -809,10 +907,30 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                       keyExtractor={(item, index) => `${item}-${index}`}
                       renderItem={({ item }) => (
                         <View style={styles.photoContainer}>
-                          <Image source={{ uri: item }} style={styles.diaryPhoto} />
+                          <TouchableOpacity
+                            onPress={() => {
+                              console.log('Image pressed:', item);
+                              setSelectedPhotoUrl(item);
+                              setShowPhotoViewer(true);
+                            }}
+                            activeOpacity={0.9}
+                            style={{ width: 120, height: 120 }}
+                          >
+                            <Image 
+                              source={{ uri: item }} 
+                              style={styles.diaryPhoto}
+                              onError={(error) => {
+                                console.error('Error loading image:', item, error.nativeEvent.error);
+                              }}
+                              onLoad={() => {
+                                console.log('Image loaded successfully:', item);
+                              }}
+                            />
+                          </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.deletePhotoButton}
                             onPress={() => handleDeletePhoto(item)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                           >
                             <Ionicons name="close-circle" size={24} color="#ff3b30" />
                           </TouchableOpacity>
@@ -840,6 +958,17 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
               </>
             )}
           </ScrollView>
+          </KeyboardAvoidingView>
+          
+          {/* Full-Screen Image Viewer Overlay - Inside diary modal */}
+          <PhotoViewer
+            visible={showPhotoViewer}
+            imageUrl={selectedPhotoUrl}
+            onClose={() => {
+              console.log('Close button pressed');
+              setShowPhotoViewer(false);
+            }}
+          />
         </LinearGradient>
       </Modal>
 
@@ -848,6 +977,20 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
         visible={!!openEventId} 
         eventId={openEventId} 
         onClose={() => setOpenEventId(null)} 
+      />
+
+      {/* Create Event Modal */}
+      <CreateEventModal
+        isVisible={showCreateEventModal}
+        onClose={() => {
+          setShowCreateEventModal(false);
+          setCreateEventFromWishlist(null);
+        }}
+        onSuccess={() => {
+          loadData(); // Refresh the data to show the new event
+        }}
+        initialTitle={createEventFromWishlist?.title}
+        initialLocation={createEventFromWishlist?.location}
       />
 
       {/* Wishlist Item Modal */}
@@ -912,15 +1055,41 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                             latitude: selectedWishlistItem.latitude, 
                             longitude: selectedWishlistItem.longitude 
                           }} 
-                          title={selectedWishlistItem.name} 
-                        />
+                          title={selectedWishlistItem.name}
+                          anchor={{ x: 0.5, y: 1 }}
+                        >
+                          <Image 
+                            source={require("../../assets/icons/map-pin.png")} 
+                            style={{ width: 32, height: 40 }}
+                            resizeMode="contain"
+                          />
+                        </Marker>
                       </MapView>
                     </View>
                   </View>
                 )}
 
                 <TouchableOpacity
-                  style={[styles.modalSubmitButton, styles.deleteButton]}
+                  style={styles.modalSubmitButton}
+                  onPress={() => {
+                    if (selectedWishlistItem) {
+                      handleCreateEventFromWishlist(selectedWishlistItem);
+                    }
+                  }}
+                >
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.modalSubmitGradient}
+                  >
+                    <Ionicons name="calendar-outline" size={16} color="#ffffff" />
+                    <Text style={styles.modalSubmitText}>Create Event</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSubmitButton}
                   onPress={() => {
                     Alert.alert(
                       'Delete Wishlist Item',
@@ -940,13 +1109,13 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
                   }}
                 >
                   <LinearGradient
-                    colors={['rgba(255,59,48,0.3)', 'rgba(255,59,48,0.2)']}
+                    colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={styles.wishlistDeleteGradient}
+                    style={styles.modalSubmitGradient}
                   >
                     <Ionicons name="trash-outline" size={16} color="#ffffff" />
-                    <Text style={styles.wishlistDeleteText}>Delete</Text>
+                    <Text style={styles.modalSubmitText}>Delete</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </>
@@ -954,6 +1123,7 @@ const [showCreateEventModal, setShowCreateEventModal] = useState(false);
           </ScrollView>
         </LinearGradient>
       </Modal>
+
     </LinearGradient>
   );
 };
@@ -1060,11 +1230,13 @@ const styles = StyleSheet.create({
   },
   infoItem: {
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  infoItemSeparator: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   infoLabel: {
     fontSize: 16,
@@ -1181,6 +1353,9 @@ const styles = StyleSheet.create({
   },
   modalSubmitGradient: {
     padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
     alignItems: 'center',
     borderRadius: 12,
   },
@@ -1235,6 +1410,8 @@ const styles = StyleSheet.create({
   photoContainer: {
     position: 'relative',
     marginRight: 12,
+    width: 120,
+    height: 120,
   },
   diaryPhoto: {
     width: 120,
@@ -1249,6 +1426,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 12,
     padding: 2,
+    zIndex: 10,
   },
   mapContainer: {
     height: 200,
@@ -1269,22 +1447,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
-  },
-  deleteButton: {
-    marginTop: 10,
-  },
-  wishlistDeleteGradient: {
-    padding: 10,
-    alignItems: 'center',
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  wishlistDeleteText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 
