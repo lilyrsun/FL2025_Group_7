@@ -32,6 +32,8 @@ type Props = {
   isVisible: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialTitle?: string;
+  initialLocation?: { address: string; lat: number; lng: number };
 };
 
 interface Friend {
@@ -41,7 +43,7 @@ interface Friend {
   profile_picture?: string;
 }
 
-const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) => {
+const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess, initialTitle, initialLocation }) => {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -56,11 +58,32 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess }) =>
 
   const { user } = useAuth();
 
+  // Set initial values when modal opens with props
   useEffect(() => {
-    if (isVisible && user?.id) {
-      loadFriends();
+    if (isVisible) {
+      if (initialTitle) {
+        setTitle(initialTitle);
+      }
+      if (initialLocation) {
+        setSelectedLocation(initialLocation);
+        setQuery(initialLocation.address || "");
+      }
+      if (user?.id) {
+        loadFriends();
+      }
+    } else {
+      // Reset form when modal closes
+      setTitle("");
+      setDate(null);
+      setSelectedLocation(null);
+      setQuery("");
+      setShowDatePicker(false);
+      setShowTimePicker(false);
+      setSelectedFriends([]);
+      setRestrictToFriends(false);
+      setShowFriendsSelector(false);
     }
-  }, [isVisible, user?.id]);
+  }, [isVisible, initialTitle, initialLocation, user?.id]);
 
   const roundToMinuteInterval = (value: Date, intervalMinutes: number) => {
     const intervalMs = intervalMinutes * 60 * 1000;
