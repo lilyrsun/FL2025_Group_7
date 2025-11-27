@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
 import { darkMode, lightMode } from '../../constants/mapStyles';
 import EventBottomSheet from "../../components/EventBottomSheet";
 import EventModal from "../../components/EventModal";
@@ -16,6 +13,8 @@ import { useSpontaneous } from '../../hooks/useSpontaneous';
 import SpontaneousModal from '../../components/SpontaneousModal';
 import CreateEventModal from '../../components/CreateEventModal';
 import SpontaneousEventModal from '../../components/SpontaneousEventModal';
+import SpontaneousPresenceMarkers from '../../components/SpontaneousPresenceMarkers';
+import GradientButton from '../../components/GradientButton';
 
 const Home = () => {
   const { user } = useAuth();
@@ -215,39 +214,27 @@ const Home = () => {
               }}
               title={event.title}
               description={event.date}
-              pinColor={event.type === "RSVP" ? "blue" : "orange"}
               onPress={() => setOpenEventId(event.id)}
-            />
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <Image 
+                source={require("../../assets/icons/map-pin.png")} 
+                style={styles.smallPin}
+                resizeMode="contain"
+              />
+            </Marker>
           ))}
 
           {/* Spontaneous Presences */}
-          {spontaneousPresences.map((presence) => (
-            <Marker
-              key={presence.id}
-              coordinate={{
-                latitude: presence.latitude,
-                longitude: presence.longitude,
-              }}
-              title={presence.user_id === user?.id ? 'You' : (presence.users?.name || 'Friend')}
-              description={presence.status_text}
-              onPress={() => {
-                console.log('Tapped spontaneous presence:', presence);
-                setOpenSpontaneousPresenceId(presence.id);
-              }}
-            >
-              {presence.users?.profile_picture ? (
-                <View style={styles.presenceMarker}>
-                  <Image
-                    source={{ uri: presence.users.profile_picture }}
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.statusDot} />
-                </View>
-              ) : (
-                <Ionicons name="radio-button-on" size={32} color="#4CAF50" />
-              )}
-            </Marker>
-          ))}
+          <SpontaneousPresenceMarkers
+            myPresence={myPresence}
+            spontaneousPresences={spontaneousPresences}
+            currentUserId={user?.id || null}
+            onPresencePress={(presenceId) => {
+              console.log('Tapped spontaneous presence:', presenceId);
+              setOpenSpontaneousPresenceId(presenceId);
+            }}
+          />
         </MapView>
       )}
 
@@ -263,56 +250,27 @@ const Home = () => {
 
       {/* Spontaneous event button - show "Start Spontaneous" only on Spontaneous tab, "Sharing..." on both tabs */}
       {(currentTabMode === "Spontaneous" || isSharing) && (
-        <LinearGradient
-          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.spontaneousButtonBorder}
-        >
-          <TouchableOpacity
-            style={[styles.spontaneousButton, isSharing && styles.spontaneousButtonActive]}
-            onPress={() => {
-              console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
-              setShowSpontaneousSheet(true);
-            }}
-          >
-            <Ionicons
-              name={isSharing ? "radio-button-on" : "radio-button-off"}
-              size={20}
-              color="#fff"
-            />
-            <Text style={styles.spontaneousButtonText}>
-              {isSharing ? "Sharing..." : "Start Spontaneous"}
-            </Text>
-          </TouchableOpacity>
-        </LinearGradient>
+        <GradientButton
+          onPress={() => {
+            console.log('Start Spontaneous tapped, showSpontaneousSheet will be:', !showSpontaneousSheet);
+            setShowSpontaneousSheet(true);
+          }}
+          iconName={isSharing ? "radio-button-on" : "radio-button-off"}
+          label={isSharing ? "Sharing..." : "Start Spontaneous"}
+          isActive={isSharing}
+        />
       )}
 
       {/* Create Event button - show only on RSVP tab */}
       {currentTabMode === "RSVP" && (
-        <LinearGradient
-          colors={['#6a5acd', '#00c6ff', '#9b59b6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.createEventButtonBorder}
-        >
-          <TouchableOpacity
-            style={styles.createEventButton}
-            onPress={() => {
-              console.log('Create Event tapped');
-              setShowCreateEventModal(true);
-            }}
-          >
-            <Ionicons
-              name="add-circle-outline"
-              size={20}
-              color="#fff"
-            />
-            <Text style={styles.createEventButtonText}>
-              Create Event
-            </Text>
-          </TouchableOpacity>
-        </LinearGradient>
+        <GradientButton
+          onPress={() => {
+            console.log('Create Event tapped');
+            setShowCreateEventModal(true);
+          }}
+          iconName="add-circle-outline"
+          label="Create Event"
+        />
       )}
 
       <EventBottomSheet
@@ -435,118 +393,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spontaneousButtonBorder: {
-    position: 'absolute',
-    bottom: 90, // 60px (tab bar) + 20px (padding) + 10px (extra space)
-    right: 20,
-    borderRadius: 22,
-    padding: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-    zIndex: 1000,
-  },
-  spontaneousButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  spontaneousButtonActive: {
-    backgroundColor: 'rgba(255, 99, 71, 0.3)',
-    borderColor: 'rgba(255, 99, 71, 0.5)',
-  },
-  spontaneousButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  gradientTextContainer: {
-    borderRadius: 0,
-  },
-  gradientText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6a5acd',
-  },
-  presenceMarker: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  statusDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  createEventButtonBorder: {
-    position: 'absolute',
-    bottom: 90, // 60px (tab bar) + 20px (padding) + 10px (extra space)
-    right: 20,
-    borderRadius: 22,
-    padding: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-    zIndex: 1000,
-  },
-  createEventButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  createEventButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  smallPin: {
+    width: 32,
+    height: 40,
   },
 });
