@@ -132,7 +132,7 @@ Follow these steps to set up and run the project locally:
       supabase stop
       supabase start
       ```
-    - When Supabase is running again, restart the frontend with a tunnel:
+    - When Supabase is running again, restart the frontend (with a tunnel if on big wifi network):
       ```bash
       npx expo start --tunnel -c
       ```
