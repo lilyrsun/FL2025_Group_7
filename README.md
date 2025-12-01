@@ -78,33 +78,41 @@ Follow these steps to set up and run the project locally:
      EXPO_API_URL="exp://###.###.##.###:8081"
      ```
 
-6. **Set up Cloudflared (for Supabase and Node.js backend):**
-   - If you don’t already have it installed, run:
+6. **Set up ngrok (in the CLI):**
+   - If you don't already have it installed, run:
      ```bash
-     brew install cloudflared
+     brew install ngrok
      ```
-   - After installation, start a quick tunnel:
+   - Get your auth token from the [ngrok website](https://dashboard.ngrok.com/get-started/your-authtoken) and add it to your config:
      ```bash
-     cloudflared tunnel --url http://localhost:54321
+     ngrok config add-authtoken YOUR_AUTH_TOKEN
      ```
-   - When you see:
+   - Create a permanent URL in the ngrok dashboard and add it to your `.env` file:
+     ```bash
+     SUPABASE_URL=https://your-permanent-url.ngrok.io
+     SUPABASE_REDIRECT_URL=https://your-permanent-url.ngrok.io/auth/v1/callback
      ```
-     Your quick Tunnel has been created! Visit it at:
+   - Start ngrok pointing to Supabase:
+     ```bash
+     ngrok http 54321
      ```
-     Copy the URL that follows (you'll need it in the next step).
 
 7. **Add Supabase environment variables:**
-   - In your `.env` file, define `SUPABASE_URL` to be the copied cloudflared URL
-   - Next, define `SUPABASE_REDIRECT_URL` to be the copied cloudflares URL with the slug "/auth/v1/callback"
+   - Make sure your `.env` file has the permanent ngrok URL set as `SUPABASE_URL` and `SUPABASE_REDIRECT_URL` (as shown in step 6)
 
 8. **Update Google Cloud Console settings:**
    - Go to your project in the Google Cloud Console.
    - Under **Authorized JavaScript origins**, add your `SUPABASE_URL`.
    - Under **Authorized redirect URIs**, add your `SUPABASE_REDIRECT_URL`.
    - Click **Save**. Note that it might take ~5 minutes for these changes to go into effect!
-  
-9. **Create a Cloudflare tunnel for the backend:**
-   - Run a second Cloudflare tunnel pointing to the backend, pasting in your backend API URL. The four sets of digits are your IP address:
+   - Since the ngrok url is permanent, you only need to do this once!
+
+9. **Set up Cloudflared (for backend):**
+   - If you don't already have it installed, run:
+     ```bash
+     brew install cloudflared
+     ```
+   - After installation, start a quick tunnel pointing to the backend. The four sets of digits are your IP address:
      ```bash
      cloudflared tunnel --url http://###.##.###.##:4000
      ```
@@ -114,7 +122,7 @@ Follow these steps to set up and run the project locally:
      ```
      A URL will follow that line. Copy it, and use it to define your backend API URL in the `.env` file:
      ```bash
-     BACKEND_API_URL=hhttps://louise-therapist-foundations-museum.trycloudflare.com
+     BACKEND_API_URL=https://your-cloudflare-url.trycloudflare.com
      ```
 
 10. **Restart services:**
