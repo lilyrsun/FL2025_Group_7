@@ -131,14 +131,17 @@ const Profile = () => {
               <Text style={styles.infoLabel}>Provider</Text>
               <Text style={styles.infoValue}>{user?.app_metadata?.provider || 'N/A'}</Text>
             </View>
+            <View style={styles.infoItemSeparator} />
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>User ID</Text>
               <Text style={styles.infoValue}>{user?.id || 'N/A'}</Text>
             </View>
+            <View style={styles.infoItemSeparator} />
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Joined</Text>
               <Text style={styles.infoValue}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</Text>
             </View>
+            <View style={styles.infoItemSeparator} />
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Last Sign-In</Text>
               <Text style={styles.infoValue}>{user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : 'N/A'}</Text>
@@ -303,6 +306,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+  },
+  infoItemSeparator: {
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
