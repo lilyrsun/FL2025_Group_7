@@ -553,8 +553,8 @@ const styles = StyleSheet.create({
   },
   submitText: {
     color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 18,
+    fontWeight: '600',
+    fontSize: 16,
   },
   datePickerGradient: {
     borderRadius: 16,
