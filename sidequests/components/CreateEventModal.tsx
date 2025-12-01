@@ -20,6 +20,7 @@ import { Entypo, Ionicons } from "@expo/vector-icons";
 import { BACKEND_API_URL } from "@env";
 import PickLocation from "./PickLocation";
 import { useAuth } from "../context/AuthContext";
+import PrimaryButton from "./PrimaryButton";
 
 const datestringOptions: Intl.DateTimeFormatOptions = {
   weekday: "long",
@@ -441,22 +442,12 @@ const CreateEventModal: React.FC<Props> = ({ isVisible, onClose, onSuccess, init
               </View>
             </View>
 
-            <TouchableOpacity 
-              style={styles.submitContainer}
-              onPress={handleSubmit} 
+            <PrimaryButton
+              title={loading ? "Creating magic... ✨" : "Create Event"}
+              onPress={handleSubmit}
               disabled={loading}
-            >
-              <LinearGradient
-                colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.submitGradient}
-              >
-                <Text style={styles.submitText}>
-                  {loading ? "Creating magic... ✨" : "Create Event"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              loading={loading}
+            />
           </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
@@ -540,21 +531,6 @@ const styles = StyleSheet.create({
   locationContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-  },
-  submitContainer: {
-    marginTop: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  submitGradient: {
-    padding: 20,
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  submitText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
   },
   datePickerGradient: {
     borderRadius: 16,
