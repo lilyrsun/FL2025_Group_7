@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { BACKEND_API_URL } from '@env';
 import { Ionicons } from '@expo/vector-icons';
+import PrimaryButton from '../../../components/PrimaryButton';
 
 interface Friend {
   id: string;
@@ -211,16 +212,10 @@ const Profile = () => {
 
         {/* Logout Button */}
         <View style={styles.logoutContainer}>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoutGradient}
-          >
-            <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
-              <Text style={styles.logoutText}>Log Out</Text>
-            </TouchableOpacity>
-          </LinearGradient>
+          <PrimaryButton
+            title="Log Out"
+            onPress={signOut}
+          />
         </View>
       </ScrollView>
     </LinearGradient>
@@ -326,22 +321,6 @@ const styles = StyleSheet.create({
   },
   logoutContainer: {
     marginTop: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  logoutGradient: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  logoutButton: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
   },
   friendsSection: {
     padding: 20,

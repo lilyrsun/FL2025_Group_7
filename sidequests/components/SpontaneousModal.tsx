@@ -5,6 +5,7 @@ import { BACKEND_API_URL } from '@env';
 import { useAuth } from '../context/AuthContext';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import PrimaryButton from './PrimaryButton';
 
 type Props = {
   isVisible: boolean;
@@ -230,17 +231,13 @@ const SpontaneousModal: React.FC<Props> = ({
                   </Text>
                 </View>
 
-                <TouchableOpacity onPress={handleStart} disabled={loading}>
-                  <LinearGradient
-                    colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.buttonSurface, styles.startSurface]}
-                  >
-                    <Ionicons name="radio-button-on" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Start Sharing</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <PrimaryButton
+                  title="Start Sharing"
+                  onPress={handleStart}
+                  disabled={loading}
+                  loading={loading}
+                  iconName="radio-button-on"
+                />
               </View>
             ) : (
               <View style={styles.card}>
@@ -265,17 +262,13 @@ const SpontaneousModal: React.FC<Props> = ({
                   </Text>
                 </View>
 
-                <TouchableOpacity onPress={handleStop} disabled={loading}>
-                  <LinearGradient
-                    colors={loading ? ['#a8a8a8', '#888888'] : ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.buttonSurface, styles.stopSurface]}
-                  >
-                    <Ionicons name="stop-circle" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Stop Sharing</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <PrimaryButton
+                  title="Stop Sharing"
+                  onPress={handleStop}
+                  disabled={loading}
+                  loading={loading}
+                  iconName="stop-circle"
+                />
               </View>
             )}
           </KeyboardAvoidingView>
@@ -393,23 +386,6 @@ const styles = StyleSheet.create({
   },
   visibilityTextActive: {
     color: '#ffffff',
-    fontWeight: '600',
-  },
-  buttonSurface: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  startSurface: {
-  },
-  stopSurface: {
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
   },
   activeStatus: {

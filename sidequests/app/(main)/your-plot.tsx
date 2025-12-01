@@ -79,6 +79,9 @@ const YourPlot = () => {
   // Full-screen image viewer state
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  
+  // Tab info modal state
+  const [showTabInfo, setShowTabInfo] = useState<'upcoming' | 'wishlist' | 'diary' | null>(null);
 
   // Debug: Log when photo viewer state changes
   useEffect(() => {
@@ -536,7 +539,16 @@ const YourPlot = () => {
         {activeTab === 'wishlist' && (
           <View style={styles.tabContent}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.inputLabel}>Wishlist</Text>
+              <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.inputLabel}>Wishlist</Text>
+                <TouchableOpacity
+                  onPress={() => setShowTabInfo('wishlist')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.infoButton}
+                >
+                  <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity 
                 style={styles.addButton} 
                 onPress={() => setShowAddWishlist(true)}
@@ -590,7 +602,18 @@ const YourPlot = () => {
 
         {activeTab === 'upcoming' && (
           <View style={styles.tabContent}>
-            <Text style={styles.inputLabel}>Upcoming Events</Text>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.inputLabel}>Upcoming Events</Text>
+                <TouchableOpacity
+                  onPress={() => setShowTabInfo('upcoming')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.infoButton}
+                >
+                  <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
             <LinearGradient
               colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
               start={{ x: 0, y: 0 }}
@@ -629,7 +652,18 @@ const YourPlot = () => {
 
         {activeTab === 'diary' && (
           <View style={styles.tabContent}>
-            <Text style={styles.inputLabel}>Diary</Text>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.inputLabel}>Diary</Text>
+                <TouchableOpacity
+                  onPress={() => setShowTabInfo('diary')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.infoButton}
+                >
+                  <Ionicons name="information-circle-outline" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
             <LinearGradient
               colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
               start={{ x: 0, y: 0 }}
@@ -750,7 +784,7 @@ const YourPlot = () => {
                 end={{ x: 1, y: 0 }}
                 style={styles.modalSubmitGradient}
               >
-                <Text style={styles.modalSubmitText}>Save</Text>
+                <Text style={styles.buttonText}>Save</Text>
               </LinearGradient>
             </TouchableOpacity>
           </ScrollView>
@@ -858,6 +892,19 @@ const YourPlot = () => {
                       numberOfLines={6}
                     />
                   </LinearGradient>
+                  <TouchableOpacity
+                    style={[styles.modalSubmitButton, { marginBottom: 15 }]}
+                    onPress={handleSaveDiary}
+                  >
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.modalSubmitGradient}
+                    >
+                      <Text style={styles.buttonText}>Save Reflection</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -875,7 +922,7 @@ const YourPlot = () => {
                         style={styles.photoButtonGradient}
                       >
                         <Ionicons name="image-outline" size={24} color="#ffffff" />
-                        <Text style={styles.photoButtonText}>
+                        <Text style={styles.buttonText}>
                           {uploadingPhoto ? 'Uploading...' : 'Choose from Library'}
                         </Text>
                       </LinearGradient>
@@ -892,7 +939,7 @@ const YourPlot = () => {
                         style={styles.photoButtonGradient}
                       >
                         <Ionicons name="camera-outline" size={24} color="#ffffff" />
-                        <Text style={styles.photoButtonText}>Take Photo</Text>
+                        <Text style={styles.buttonText}>Take Photo</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -941,20 +988,6 @@ const YourPlot = () => {
                     />
                   </View>
                 )}
-
-                <TouchableOpacity
-                  style={styles.modalSubmitButton}
-                  onPress={handleSaveDiary}
-                >
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.1)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.modalSubmitGradient}
-                  >
-                    <Text style={styles.modalSubmitText}>Save Entry</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </>
             )}
           </ScrollView>
@@ -1084,7 +1117,7 @@ const YourPlot = () => {
                     style={styles.modalSubmitGradient}
                   >
                     <Ionicons name="calendar-outline" size={16} color="#ffffff" />
-                    <Text style={styles.modalSubmitText}>Create Event</Text>
+                    <Text style={styles.buttonText}>Create Event</Text>
                   </LinearGradient>
                 </TouchableOpacity>
 
@@ -1115,13 +1148,55 @@ const YourPlot = () => {
                     style={styles.modalSubmitGradient}
                   >
                     <Ionicons name="trash-outline" size={16} color="#ffffff" />
-                    <Text style={styles.modalSubmitText}>Delete</Text>
+                    <Text style={styles.buttonText}>Delete</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </>
             )}
           </ScrollView>
         </LinearGradient>
+      </Modal>
+
+      {/* Tab Info Modal */}
+      <Modal 
+        visible={!!showTabInfo} 
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTabInfo(null)}
+      >
+        <TouchableOpacity 
+          style={styles.tabInfoOverlay}
+          activeOpacity={1}
+          onPress={() => setShowTabInfo(null)}
+        >
+          <View style={styles.tabInfoModal}>
+            <LinearGradient
+              colors={['rgba(106, 90, 205, 0.95)', 'rgba(0, 198, 255, 0.95)', 'rgba(155, 89, 182, 0.95)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.tabInfoGradient}
+            >
+              <View style={styles.tabInfoHeader}>
+                <Text style={styles.tabInfoTitle}>
+                  {showTabInfo === 'upcoming' && 'Upcoming'}
+                  {showTabInfo === 'wishlist' && 'Wishlist'}
+                  {showTabInfo === 'diary' && 'Diary'}
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setShowTabInfo(null)}
+                  style={styles.tabInfoCloseButton}
+                >
+                  <Ionicons name="close" size={24} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.tabInfoText}>
+                {showTabInfo === 'upcoming' && 'For viewing future RSVP events you\'ve said yes to.'}
+                {showTabInfo === 'wishlist' && 'Where you can bookmark locations you want to host future RSVP-style events at in the future.'}
+                {showTabInfo === 'diary' && 'Helps you track past RSVP-style events and you can also upload notes and photos.'}
+              </Text>
+            </LinearGradient>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
     </LinearGradient>
@@ -1193,6 +1268,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  infoButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   addButton: {
     width: 40,
     height: 40,
@@ -1222,7 +1308,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 12,
+    lineHeight: 20,
   },
   infoGradient: {
     borderRadius: 16,
@@ -1359,10 +1445,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
   },
-  modalSubmitText: {
+  buttonText: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
   },
   diaryEventInfo: {
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -1398,11 +1484,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  photoButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
   },
   photosList: {
     paddingVertical: 8,
@@ -1447,6 +1528,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '500',
+  },
+  tabInfoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  tabInfoModal: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  tabInfoGradient: {
+    padding: 24,
+  },
+  tabInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  tabInfoTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  tabInfoCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabInfoText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.95)',
+    lineHeight: 24,
   },
 });
 
